@@ -3,12 +3,12 @@ buildscript {
     repositories {
         // Use the modern, required repositories. jcenter is shut down.
         google()
-        mavenCentral()   
+        mavenCentral()
     }
     dependencies {
         // --- THIS IS THE FIX ---
-        // Upgrade the Android Gradle Plugin to a version that can handle the modern libraries.
-        classpath 'com.android.tools.build:gradle:7.4.2'
+        // Upgrade the Android Gradle Plugin to a version compatible with modern libraries and SDK 34.
+        classpath 'com.android.tools.build:gradle:8.1.4' // <<< THIS LINE HAS BEEN UPDATED
         // Add the Google services classpath for Firebase integration
         classpath 'com.google.gms:google-services:4.4.1'
     }
