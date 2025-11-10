@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary Palette for Safe Voice (Dark Theme) -->
+    <!-- We keep the primary colors consistent for branding, but adjust the background -->
+    <color name="colorPrimary">#D32F2F</color> <!-- A slightly brighter red for dark backgrounds -->
+    <color name="colorPrimaryDark">#B71C1C</color> <!-- The standard deep red for the status bar -->
+    <color name="colorAccent">#FFEA00</color> <!-- A vibrant yellow for accents -->
+
+    <!-- Standard Colors -->
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <!-- UI Element Colors for Dark Theme -->
+    <!-- Text and background colors are inverted for dark mode -->
+    <color name="textColorPrimary">#FFFFFFFF</color> <!-- White for text on dark backgrounds -->
+    <color name="textColorSecondary">#B3FFFFFF</color> <!-- 70% white for secondary text -->
+    <color name="windowBackground">#121212</color> <!-- A standard dark theme background color -->
+</resources>
