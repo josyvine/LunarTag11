@@ -133,7 +133,7 @@ public class KycActivity extends AppCompatActivity {
             Log.e(TAG, "Use case binding failed", e);
         }
 
-        // The ID in your XML is 'camera_preview', which ViewBinding converts to 'cameraPreview'. This is correct.
+        // The ID in your XML is 'camera_preview', which ViewBinding converts to 'cameraPreview'.
         preview.setSurfaceProvider(binding.cameraPreview.getSurfaceProvider());
     }
 
@@ -147,21 +147,27 @@ public class KycActivity extends AppCompatActivity {
         runOnUiThread(() -> {
             switch (currentState) {
                 case SCANNING_ID:
+                    // When scanning the ID, show the guide box and set its background to the RECTANGLE.
                     binding.guideBox.setVisibility(View.VISIBLE);
+                    binding.guideBox.setBackgroundResource(R.drawable.bg_guide_box); // Your original rectangle drawable
                     binding.textInstructions.setText(R.string.kyc_instructions_id);
                     break;
                 case SCANNING_FACE:
+                    // When scanning the face, show the guide box and set its background to the OVAL.
                     binding.guideBox.setVisibility(View.VISIBLE);
+                    binding.guideBox.setBackgroundResource(R.drawable.oval_frame_drawable); // The new oval shape
                     binding.textInstructions.setText(R.string.kyc_instructions_face);
                     // This call will now safely rebind the camera to the front lens.
                     bindCameraUseCases();
                     break;
                 case VERIFYING:
+                    // Keep the oval visible while verifying
                     binding.guideBox.setVisibility(View.VISIBLE);
                     binding.textInstructions.setText(R.string.kyc_status_verifying);
                     binding.progressBar.setVisibility(View.VISIBLE);
                     break;
                 case COMPLETE:
+                    // When finished, hide the guide box and progress bar.
                     binding.guideBox.setVisibility(View.GONE);
                     binding.progressBar.setVisibility(View.GONE);
                     break;
