@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"> 
+    xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- This block is now included exactly as your reference requires -->
     <uses-sdk
-        android:minSdkVersion="26"
+        android:minSdkVersion="23"
+        android:targetSdkVersion="34"
         tools:overrideLibrary="com.google.android.gms.ads_identifier" />
 
     <!-- Core Permissions for Safe Voice -->
@@ -13,8 +15,10 @@
     <uses-permission android:name="android.permission.SEND_SMS" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- ADDED: Permissions needed for new services -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+
 
     <!-- Location Permissions for Safe Voice -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -27,21 +31,19 @@
     <uses-feature android:name="android.hardware.camera" android:required="true" />
     <uses-feature android:name="android.hardware.microphone" android:required="true" />
 
+    <!-- The application tag now matches your reference style -->
     <application
         android:name=".SafeVoiceApplication"
         android:allowBackup="true"
-        android:icon="@drawable/ic_launcher"
+        android:icon="@drawable/safevoice"
         android:label="@string/app_name"
-        android:roundIcon="@drawable/ic_launcher_round"
-        android:supportsRtl="true"
-        android:theme="@style/Theme.SafeVoice3"
-        tools:targetApi="31">
+        android:theme="@style/AppTheme">
 
         <!-- DisclaimerActivity is the LAUNCHER, ensuring user agrees to terms first -->
         <activity
             android:name=".DisclaimerActivity"
             android:exported="true"
-            android:theme="@style/Theme.SafeVoice3.NoActionBar">
+            android:theme="@style/AppTheme.NoActionBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -56,14 +58,14 @@
         <!-- The screen for user identity verification -->
         <activity
             android:name=".KycActivity"
-            android:exported="false"
-            android:label="Verify Your Identity" />
+            android:label="Verify Your Identity"
+            android:exported="false" />
 
-        <!-- The screen for Google Sign-In -->
+        <!-- THIS IS THE NEW ACTIVITY DECLARATION FOR THE LOGIN SCREEN -->
         <activity
             android:name=".LoginActivity"
-            android:exported="false"
-            android:label="Sign In" />
+            android:label="Sign In"
+            android:exported="false" />
             
         <!-- NEW: The full-screen activity for receiving emergency alerts -->
         <activity
@@ -71,7 +73,7 @@
             android:exported="false"
             android:launchMode="singleTop"
             android:showOnLockScreen="true"
-            android:theme="@style/Theme.SafeVoice3.NoActionBar" />
+            android:theme="@style/AppTheme.NoActionBar" />
 
         <!-- The "Always Listening" background service -->
         <service
@@ -85,7 +87,7 @@
             android:name=".services.EmergencyHandlerService"
             android:enabled="true"
             android:exported="false" />
-
+            
         <!-- NEW: The service for receiving Firebase Cloud Messaging alerts -->
         <service
             android:name=".services.FirebaseAlertService"
@@ -95,7 +97,8 @@
             </intent-filter>
         </service>
 
-        <!-- CRITICAL: Disables default Firebase initializer for dynamic loading -->
+        <!-- CRITICAL: This disables the default Firebase initializer,
+             allowing our app to load the configuration dynamically at runtime. -->
         <provider
             android:name="com.google.firebase.provider.FirebaseInitProvider"
             android:authorities="${applicationId}.firebaseinitprovider"
