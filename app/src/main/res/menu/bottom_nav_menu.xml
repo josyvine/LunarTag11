@@ -11,6 +11,12 @@
         android:icon="@drawable/ic_contacts_black_24dp"
         android:title="@string/title_contacts" />
 
+    <!-- THIS IS THE NEW ITEM YOU ARE ADDING -->
+    <item
+        android:id="@+id/navigation_profile"
+        android:icon="@drawable/ic_profile_black_24dp"
+        android:title="@string/title_profile" />
+
     <item
         android:id="@+id/navigation_settings"
         android:icon="@drawable/ic_settings_black_24dp"
