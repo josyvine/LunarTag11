@@ -1,36 +1,26 @@
 {
   "project_info": {
-    "project_number": "1013718891067",
-    "project_id": "safevoice-a09cf",
-    "storage_bucket": "safevoice-a09cf.firebasestorage.app"
+    "project_number": "617676118202",
+    "project_id": "lunar-tag",
+    "storage_bucket": "lunar-tag.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1013718891067:android:14fafe142776740fe57a1e",
+        "mobilesdk_app_id": "1:617676118202:android:286cdf9704f4ebfdfbca83",
         "android_client_info": {
-          "package_name": "com.safevoice.app"
+          "package_name": "com.lunartag.app"
         }
       },
-      "oauth_client": [
-        {
-          "client_id": "1013718891067-ogca31bvt1f2rvcf0jed41gccienmdg8.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
+      "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBIQwGtpgZw-uVvJcFndrlCb6hllGMBbs0"
+          "current_key": "AIzaSyC0CdrBeMCaCszB8mj4auhzs2PkgBbh3Fc"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "1013718891067-ogca31bvt1f2rvcf0jed41gccienmdg8.apps.googleusercontent.com",
-              "client_type": 3
-            }
-          ]
+          "other_platform_oauth_client": []
         }
       }
     }
