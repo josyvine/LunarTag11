@@ -1,108 +1,40 @@
 <resources>
     <!-- App Identity -->
-    <string name="app_name">Safe Voice</string>
+    <string name="app_name">Lunar Tag</string>
 
-    <!-- THIS IS THE NEW STRING REQUIRED FOR GOOGLE SIGN-IN -->
-    <!-- It is copied from your google-services.json file -->
-    <string name="default_web_client_id">1013718891067-ogca31bvt1f2rvcf0jed41gccienmdg8.apps.googleusercontent.com</string>
-
-    <!-- Disclaimer Screen -->
-    <string name="disclaimer_title">Important Disclaimer &amp; Terms of Service</string>
-    <string name="disclaimer_text">
-        Welcome to Safe Voice.\n\n
-        Before you proceed, you MUST understand and agree to the following terms:\n\n
-        1.  <b>Always-On Service:</b> To function correctly, Safe Voice runs a service in the background at all times to listen for the voice trigger "Help Help". This will consume a small amount of battery.\n\n
-        2.  <b>Emergency Actions:</b> When triggered, this app will automatically attempt to:\n
-            - Call your primary emergency contact.\n
-            - Send SMS messages to all your emergency contacts.\n\n
-        3.  <b>Location Data:</b> The emergency SMS will include a link to your device\'s current location, obtained via GPS. Your location is ONLY accessed and shared when an emergency is triggered.\n\n
-        4.  <b>Permissions:</b> The app requires access to your Microphone, Location, Phone, and SMS to perform its core functions. It cannot work without these permissions.\n\n
-        5.  <b>Not a Replacement:</b> This app is a supplementary tool and is NOT a replacement for official emergency services (like 911, 112, etc.). Always contact official services directly if you can.\n\n
-        6.  <b>No Guarantee:</b> The reliability of this app depends on factors outside of our control, including device performance, battery level, operating system restrictions, network signal, and GPS availability. We are not liable for any failure of the app to perform as expected in an emergency.\n\n
-        By clicking "Accept &amp; Continue", you acknowledge these terms and agree to use Safe Voice at your own risk.
+    <!-- Onboarding Screen -->
+    <string name="onboarding_title">Welcome to Lunar Tag</string>
+    <string name="onboarding_text">
+        Welcome to Lunar Tag.\n\n
+        Before you proceed, you MUST understand and agree to the following:\n\n
+        1.  <b>Permissions:</b> To function correctly, this app requires persistent access to your device\'s CAMERA and PRECISE LOCATION (GPS). It cannot work without these permissions.\n\n
+        2.  <b>Geotagging:</b> When a photo is captured, the app will embed your current GPS coordinates, timestamp, and other details into a permanent watermark on the image.\n\n
+        3.  <b>Audit & Compliance:</b> All critical actions (photo captures, timestamp assignments, sending) are logged for auditing purposes. The real capture time is always recorded, even when a custom timestamp is used.\n\n
+        4.  <b>Automated Sending:</b> The app is designed to automatically schedule and initiate sending photos to a pre-configured WhatsApp group at their assigned time.\n\n
+        5.  <b>No Guarantee:</b> The reliability of this app depends on factors outside of our control, including device performance, battery level, operating system restrictions, network signal, and GPS availability.\n\n
+        By clicking "Accept & Continue", you acknowledge these terms and agree to use Lunar Tag at your own risk.
     </string>
-    <string name="accept_button">Accept &amp; Continue</string>
-    <string name="decline_button">Decline</string>
+    <string name="onboarding_continue_button">Accept &amp; Continue</string>
 
     <!-- Bottom Navigation Titles -->
-    <string name="title_home">Home</string>
-    <string name="title_contacts">Contacts</string>
-    <string name="title_profile">Profile</string> <!-- THIS IS THE NEW LINE -->
+    <string name="title_dashboard">Dashboard</string>
+    <string name="title_camera">Camera</string>
+    <string name="title_gallery">Gallery</string>
     <string name="title_settings">Settings</string>
 
-    <!-- Home Fragment -->
-    <string name="home_status_listening">Status: Listening for trigger phrase</string>
-    <string name="home_status_stopped">Status: Service is not running</string>
-    <string name="home_start_service_button">Start Listening Service</string>
-    <string name="home_stop_service_button">Stop Listening Service</string>
-    <string name="home_verification_status">Verification: Not Verified</string>
-    <string name="home_verification_status_verified">Verification: Verified as %1$s</string> <!-- %1$s is a placeholder for the user's name -->
-    <string name="home_verify_now_button">Verify Identity Now</string>
-
-
-    <!-- Contacts Fragment -->
-    <string name="contacts_primary_contact_header">Primary Contact (for Phone Calls)</string>
-    <string name="contacts_add_primary_button">Set Primary Contact</string>
-    <string name="contacts_secondary_contacts_header">In-App Contacts (for Online Alerts)</string>
-    <string name="contacts_add_contact_button">Add New Contact</string>
-    <string name="contact_name_hint">Contact Name</string>
-    <string name="contact_phone_hint">Phone Number</string>
-    <string name="save_contact_button">Save</string>
-
-
-    <!-- Settings Fragment -->
-    <string name="settings_header_firebase">Firebase Configuration</string>
-    <string name="settings_firebase_prompt">When developer quota is reached, connect your own Firebase to continue using Safe Voice.</string>
-    <string name="settings_upload_json_button">Upload google-services.json</string>
-    <string name="settings_show_rules_button">Show Required Firestore Rule</string>
-    <string name="settings_copy_rules_button">Copy Rule</string>
-    <string name="settings_close_rules_button">Close</string>
-    <string name="settings_firebase_rules_helper_text">service cloud.firestore { match /databases/{database}/documents { match /{document=**} { allow read, write: if true; } } }</string>
-
+    <!-- Settings Screen -->
     <string name="settings_header_general">General Settings</string>
-    <string name="settings_theme_label">App Theme</string>
-    <string name="settings_theme_light">Light</string>
-    <string name="settings_theme_dark">Dark</string>
-    <string name="settings_theme_system">System Default</string>
+    <string name="settings_company_name_label">Company Name</string>
+    <string name="settings_company_name_hint">Enter your company name</string>
+    <string name="settings_duty_timing_label">Duty Timing</string>
+    <string name="settings_shift_start_hint">Shift Start Time</string>
+    <string name="settings_shift_end_hint">Shift End Time</string>
+    <string name="settings_whatsapp_group_label">Target WhatsApp Group</string>
+    <string name="settings_whatsapp_group_hint">Enter group name exactly</string>
+    <string name="settings_save_button">Save Settings</string>
 
-    <string name="settings_header_emergency">Emergency Settings</string>
-    <string name="settings_webrtc_toggle">Use WebRTC Call (Online Only)</string>
-
-
-    <!-- KYC Activity -->
-    <string name="kyc_instructions_id">Position your ID card inside the frame.</string>
-    <string name="kyc_instructions_face">Now, position your face in the frame.</string>
-    <string name="kyc_status_verifying">Verifying...</string>
-    <string name="face_guide_box">Face guide box</string>
-
-
-    <!-- New Strings for Connection/Contact System -->
-    <string name="contact_email_hint">Search user by email</string>
-    <string name="contacts_incoming_requests_header">Incoming Connection Requests</string>
-    <string name="contacts_no_requests">No pending requests.</string>
-    <string name="contacts_send_request_button">Send New Connection Request</string>
-    <string name="request_sent_success">Connection request sent.</string>
-    <string name="user_not_found">User not found. Please check the email address.</string>
-    <string name="cannot_add_self">You cannot add yourself as a contact.</string>
-    <string name="already_a_contact">This user is already in your contacts.</string>
-    <string name="request_already_sent">A request has already been sent to this user.</string>
-
-    <!-- New Strings for WebRTC/Twilio Settings -->
-    <string name="settings_webrtc_header">In-App Call Settings</string>
-    <string name="settings_call_preference_title">Preferred Online Call Method</string>
-    <string name="settings_call_preference_standard">Standard Phone Call</string>
-    <string name="settings_call_preference_webrtc">In-App Voice Call</string>
-    <string name="settings_twilio_header">Custom TURN Server (Optional)</string>
-    <string name="settings_twilio_account_sid_hint">Twilio Account SID</string>
-    <string name="settings_twilio_api_key_hint">API Key</string>
-    <string name="settings_twilio_api_secret_hint">API Secret</string>
-    <string name="settings_save_twilio_button">Save Twilio Credentials</string>
-    <string name="twilio_credentials_saved">Twilio credentials saved successfully.</string>
-    <string name="twilio_credentials_failed">Failed to save Twilio credentials.</string>
-
-    <!-- New Strings for Emergency Pop-up -->
-    <string name="emergency_popup_title">EMERGENCY ALERT</string>
-    <string name="join_call_button">Join In-App Call</string>
-    <string name="call_back_button">Call Back (Standard)</string>
+    <!-- Camera Screen -->
+    <string name="camera_accuracy_label">GPS Accuracy:</string>
+    <string name="camera_capture_button_desc">Capture Photo</string>
 
 </resources>
