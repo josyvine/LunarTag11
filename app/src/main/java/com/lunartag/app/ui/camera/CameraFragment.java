@@ -311,11 +311,11 @@ public class CameraFragment extends Fragment {
                 // --------------------------------------------
 
                 String address = getAddressFromLocation(location);
-                
+
                 // --- FIX: REMOVED ':ss' (SECONDS) FROM FORMAT ---
                 SimpleDateFormat sdf = new SimpleDateFormat("dd-MMM-yyyy hh:mm a", Locale.US);
                 // ------------------------------------------------
-                
+
                 String timeString = sdf.format(new Date(assignedTime));
                 String gpsString = "Lat: " + (location != null ? location.getLatitude() : "0.0") +
                         " Lon: " + (location != null ? location.getLongitude() : "0.0");
@@ -329,7 +329,10 @@ public class CameraFragment extends Fragment {
                 };
 
                 logToScreen("System: Applying Watermark...");
-                WatermarkUtils.addWatermark(bitmap, null, watermarkLines);
+                
+                // --- CRITICAL CHANGE: Pass 'getContext()' to load the LOGO ---
+                WatermarkUtils.addWatermark(getContext(), bitmap, null, watermarkLines);
+                // -------------------------------------------------------------
 
                 // --- CRITICAL CHANGE: STORAGE LOGIC ---
                 String absolutePath = null;
@@ -501,10 +504,10 @@ public class CameraFragment extends Fragment {
             }
             AppDatabase db = AppDatabase.getDatabase(getContext());
             PhotoDao dao = db.photoDao();
-            
+
             // --- FIXED: Capture ID and Schedule Alarm ---
             long id = dao.insertPhoto(photo);
-            
+
             logToScreen("System: Scheduling Alarm for Photo ID: " + id);
             Scheduler.schedulePhotoSend(
                 requireContext(),
