@@ -310,7 +310,11 @@ public class CameraFragment extends Fragment {
                 // --------------------------------------------
 
                 String address = getAddressFromLocation(location);
-                SimpleDateFormat sdf = new SimpleDateFormat("dd-MMM-yyyy hh:mm:ss a", Locale.US);
+                
+                // --- FIX: REMOVED ':ss' (SECONDS) FROM FORMAT ---
+                SimpleDateFormat sdf = new SimpleDateFormat("dd-MMM-yyyy hh:mm a", Locale.US);
+                // ------------------------------------------------
+                
                 String timeString = sdf.format(new Date(assignedTime));
                 String gpsString = "Lat: " + (location != null ? location.getLatitude() : "0.0") +
                         " Lon: " + (location != null ? location.getLongitude() : "0.0");
