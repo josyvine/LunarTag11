@@ -14,23 +14,27 @@ import java.util.List;
 
 /**
  * The Automation Engine.
- * UPDATED: Includes Live Log (Toasts) to visualize every step of the automation.
- * Reads commands from the 'Bridge' preference file to execute clicks.
+ * UPDATED: Now supports Multiple WhatsApp Variants (Original, Business, Clones).
+ * Includes Live Log (Toasts) to visualize every step of the automation.
  */
 public class LunarTagAccessibilityService extends AccessibilityService {
 
     private static final String TAG = "AccessibilityService";
-    private static final String WHATSAPP_PACKAGE_NAME = "com.whatsapp";
+    
+    // REMOVED: Strict "com.whatsapp" constant. 
+    // We now support any package containing "whatsapp".
 
-    // --- Shared Memory Constants (Must match SendService) ---
+    // --- Shared Memory Constants (Must match AlarmReceiver) ---
     private static final String PREFS_ACCESSIBILITY = "LunarTagAccessPrefs";
     private static final String KEY_TARGET_GROUP = "target_group_name";
     private static final String KEY_JOB_PENDING = "job_is_pending";
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        // 1. Safety Check: Only react to WhatsApp
-        if (event.getPackageName() == null || !event.getPackageName().toString().equals(WHATSAPP_PACKAGE_NAME)) {
+        // 1. Expanded Safety Check: Allow Standard, Business, and Clones
+        CharSequence packageName = event.getPackageName();
+        if (packageName == null || !packageName.toString().toLowerCase().contains("whatsapp")) {
+            // If the active app is not some version of WhatsApp, ignore it.
             return;
         }
 
@@ -40,7 +44,7 @@ public class LunarTagAccessibilityService extends AccessibilityService {
         String targetGroupName = prefs.getString(KEY_TARGET_GROUP, null);
 
         if (!isJobPending) {
-            // Silent exit (No job active), to avoid spamming toast messages during normal use.
+            // Silent exit (No job active), to avoid spamming toast messages.
             return;
         }
         
@@ -57,7 +61,7 @@ public class LunarTagAccessibilityService extends AccessibilityService {
         }
 
         // --- PHASE 1: Find the Target Group and Click It ---
-        // Use strict text matching first for the specific group name ("Love")
+        // Use strict text matching first for the specific group name (e.g., "Love")
         List<AccessibilityNodeInfo> groupNodes = rootNode.findAccessibilityNodeInfosByText(targetGroupName);
         if (groupNodes != null && !groupNodes.isEmpty()) {
             for (AccessibilityNodeInfo node : groupNodes) {
@@ -77,8 +81,8 @@ public class LunarTagAccessibilityService extends AccessibilityService {
         }
 
         // --- PHASE 2: Find the "Send" Button and Click It ---
-        // This works for the standard icon. WhatsApp send button usually has text "Send"
-        // or ContentDescription "Send".
+        // This works for the standard icon in almost all WhatsApp versions.
+        // "Send" is the text used for the paper airplane icon description.
         List<AccessibilityNodeInfo> sendButtonNodes = rootNode.findAccessibilityNodeInfosByText("Send");
         
         if (sendButtonNodes != null && !sendButtonNodes.isEmpty()) {
