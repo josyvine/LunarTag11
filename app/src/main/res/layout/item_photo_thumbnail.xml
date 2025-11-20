@@ -57,6 +57,21 @@
                 tools:text="PENDING" />
         </LinearLayout>
 
+        <!-- NEW: Selection Checkbox -->
+        <!-- Hidden by default, visible when Long Press triggers selection mode -->
+        <CheckBox
+            android:id="@+id/checkbox_select"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:layout_marginEnd="2dp"
+            android:buttonTint="@android:color/white"
+            android:visibility="gone"
+            android:clickable="false"
+            android:focusable="false"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            tools:visibility="visible" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
