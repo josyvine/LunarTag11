@@ -52,7 +52,12 @@
             android:exported="false"
             android:windowSoftInputMode="adjustPan" />
 
-        <!-- REMOVED: SendService (Replaced by AlarmReceiver for Background Support) -->
+        <!-- NEW: Full Screen Image Viewer (Registered to prevent crashes) -->
+        <activity
+            android:name=".ui.viewer.ImageViewerActivity"
+            android:theme="@style/Theme.AppCompat.NoActionBar"
+            android:screenOrientation="portrait"
+            android:exported="false" />
 
         <!-- ADDED: AlarmReceiver - The new "Doorbell" that works in the background -->
         <receiver 
