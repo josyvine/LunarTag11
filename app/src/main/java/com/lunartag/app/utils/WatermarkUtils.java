@@ -1,4 +1,4 @@
-package com.lunartag.app.utils; 
+package com.lunartag.app.utils;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -13,7 +13,7 @@ import com.lunartag.app.R;
 
 /**
  * A utility class with static methods for rendering the watermark onto a photo.
- * UPDATED: Now draws App Logo and Name in the top-right corner.
+ * UPDATED: Fixed build error by removing reference to missing mipmap resource.
  */
 public class WatermarkUtils {
 
@@ -51,7 +51,7 @@ public class WatermarkUtils {
 
         Paint backgroundPaint = new Paint();
         backgroundPaint.setColor(Color.BLACK);
-        backgroundPaint.setAlpha(140); // Semi-transparent black (increased from 128 for better readability)
+        backgroundPaint.setAlpha(140); // Semi-transparent black
 
         // --- 3. Calculate Dimensions ---
         float textHeight = textPaint.descent() - textPaint.ascent();
@@ -80,11 +80,9 @@ public class WatermarkUtils {
         // Load the Logo. We assume 'lunartag' is the file name in drawable folder.
         Bitmap logo = null;
         if (context != null) {
+            // FIXED: Removed the fallback to R.mipmap.ic_launcher because it doesn't exist.
+            // We strictly use your provided logo.
             logo = BitmapFactory.decodeResource(context.getResources(), R.drawable.lunartag);
-            // Fallback to launcher icon if specific logo not found, prevents crash
-            if (logo == null) {
-                logo = BitmapFactory.decodeResource(context.getResources(), R.mipmap.ic_launcher);
-            }
         }
 
         if (logo != null) {
