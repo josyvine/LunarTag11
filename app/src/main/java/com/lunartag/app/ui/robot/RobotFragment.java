@@ -6,7 +6,7 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.RadioGroup;
+import android.widget.RadioButton;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -18,7 +18,7 @@ import com.lunartag.app.R;
 /**
  * The Robot Fragment.
  * Allows the user to select between "Semi-Automatic" and "Full-Automatic" modes.
- * Saves the preference to the shared file used by the Accessibility Service.
+ * UPDATED: Fixed the bug where both buttons remained selected by handling logic manually.
  */
 public class RobotFragment extends Fragment {
 
@@ -26,7 +26,8 @@ public class RobotFragment extends Fragment {
     private static final String PREFS_ACCESSIBILITY = "LunarTagAccessPrefs";
     private static final String KEY_AUTO_MODE = "automation_mode"; // Values: "semi" or "full"
 
-    private RadioGroup radioGroup;
+    private RadioButton radioSemi;
+    private RadioButton radioFull;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -38,7 +39,9 @@ public class RobotFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        radioGroup = view.findViewById(R.id.radio_group_automation);
+        // We bind to the buttons directly to bypass RadioGroup nesting issues
+        radioSemi = view.findViewById(R.id.radio_semi);
+        radioFull = view.findViewById(R.id.radio_full);
 
         // 1. Load saved state
         SharedPreferences prefs = requireContext().getSharedPreferences(PREFS_ACCESSIBILITY, Context.MODE_PRIVATE);
@@ -46,28 +49,41 @@ public class RobotFragment extends Fragment {
 
         // 2. Update UI based on saved state
         if (currentMode.equals("full")) {
-            radioGroup.check(R.id.radio_full);
+            radioFull.setChecked(true);
+            radioSemi.setChecked(false);
         } else {
-            radioGroup.check(R.id.radio_semi);
+            radioSemi.setChecked(true);
+            radioFull.setChecked(false);
         }
 
-        // 3. Listen for changes
-        radioGroup.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
+        // 3. LISTENERS (Manual Exclusion Logic)
+        // We use OnClickListener instead of OnCheckedChange to ensure
+        // completely reliable toggling regardless of XML layout structure.
+
+        radioSemi.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onCheckedChanged(RadioGroup group, int checkedId) {
-                String newMode = "semi";
-                String message = "Mode set to Semi-Automatic";
-
-                if (checkedId == R.id.radio_full) {
-                    newMode = "full";
-                    message = "Mode set to Full-Automatic (Zero Click)";
-                }
-
-                // Save immediately
-                prefs.edit().putString(KEY_AUTO_MODE, newMode).apply();
+            public void onClick(View v) {
+                // Uncheck the other one
+                radioFull.setChecked(false);
                 
-                Toast.makeText(getContext(), message, Toast.LENGTH_SHORT).show();
+                // Save State
+                prefs.edit().putString(KEY_AUTO_MODE, "semi").apply();
+                
+                Toast.makeText(getContext(), "Mode: Semi-Automatic (Human Verified)", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        radioFull.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // Uncheck the other one
+                radioSemi.setChecked(false);
+                
+                // Save State
+                prefs.edit().putString(KEY_AUTO_MODE, "full").apply();
+                
+                Toast.makeText(getContext(), "Mode: Full-Automatic (Zero Click)", Toast.LENGTH_SHORT).show();
             }
         });
     }
-          }
+}
