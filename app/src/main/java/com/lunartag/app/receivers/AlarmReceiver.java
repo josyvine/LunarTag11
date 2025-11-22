@@ -21,18 +21,19 @@ import com.lunartag.app.R;
 import java.io.File;
 
 /**
- * The New "Doorbell" Receiver.
- * Replaces SendService to bypass Android 12+ Background Restrictions.
- * Allows user to choose between WhatsApp / Business / Clones.
+ * The "Doorbell" Receiver.
+ * UPDATED: Fixed Notification Overwriting (Queue Collision) and Full-Auto Triggering.
  */
 public class AlarmReceiver extends BroadcastReceiver {
 
     private static final String TAG = "AlarmReceiver";
     
-    // Key to retrieve file path (Must match Scheduler)
+    // Keys to retrieve data from Scheduler
     public static final String EXTRA_FILE_PATH = "com.lunartag.app.EXTRA_FILE_PATH";
+    // NEW: We receive the Photo ID to create unique notifications
+    public static final String EXTRA_PHOTO_ID = "com.lunartag.app.EXTRA_PHOTO_ID";
 
-    // Settings Prefs (To read "Love" group name)
+    // Settings Prefs (To read "Target" group name)
     private static final String PREFS_SETTINGS = "LunarTagSettings";
     private static final String KEY_WHATSAPP_GROUP = "whatsapp_group";
 
@@ -42,15 +43,14 @@ public class AlarmReceiver extends BroadcastReceiver {
     private static final String KEY_JOB_PENDING = "job_is_pending";
 
     private static final String CHANNEL_ID = "SendServiceChannel"; 
-    private static final int NOTIFICATION_ID = 999;
 
     @Override
     public void onReceive(Context context, Intent intent) {
         Log.d(TAG, "Alarm Received! Waking up...");
-        // Live Log: Prove the alarm fired
-        Toast.makeText(context, "LunarTag: Scheduled Time Reached!", Toast.LENGTH_LONG).show();
-
+        
         String filePath = intent.getStringExtra(EXTRA_FILE_PATH);
+        // Default to current time if ID is missing, ensuring uniqueness
+        long photoId = intent.getLongExtra(EXTRA_PHOTO_ID, System.currentTimeMillis());
 
         if (filePath == null || filePath.isEmpty()) {
             Log.e(TAG, "No file path provided in Alarm Intent.");
@@ -58,16 +58,17 @@ public class AlarmReceiver extends BroadcastReceiver {
         }
 
         // 1. Validate File & Get URI (Handles both SD Card & Internal)
-        Uri imageUri = null;
+        Uri imageUri;
         try {
             if (filePath.startsWith("content://")) {
-                // Custom Folder (SD Card)
+                // Custom Folder (SD Card / SAF)
                 imageUri = Uri.parse(filePath);
+                // We trust SAF URIs persist, but we verify access permissions logically
+                context.getContentResolver().takePersistableUriPermission(imageUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
             } else {
                 // Internal Storage
                 File file = new File(filePath);
                 if (!file.exists()) {
-                    Toast.makeText(context, "Error: Photo file missing!", Toast.LENGTH_SHORT).show();
                     Log.e(TAG, "File missing at: " + filePath);
                     return;
                 }
@@ -87,7 +88,8 @@ public class AlarmReceiver extends BroadcastReceiver {
         armAccessibilityService(context);
 
         // 3. Create the Notification (The "Doorbell")
-        showNotification(context, imageUri);
+        // We pass the unique photoId so notifications don't overwrite each other.
+        showNotification(context, imageUri, (int) photoId);
     }
 
     /**
@@ -102,11 +104,9 @@ public class AlarmReceiver extends BroadcastReceiver {
             SharedPreferences accessPrefs = context.getSharedPreferences(PREFS_ACCESSIBILITY, Context.MODE_PRIVATE);
             accessPrefs.edit()
                     .putString(KEY_TARGET_GROUP, groupName)
-                    .putBoolean(KEY_JOB_PENDING, true)
+                    .putBoolean(KEY_JOB_PENDING, true) // TELLS ROBOT: "WAKE UP"
                     .apply();
             Log.d(TAG, "Bridge Armed for Group: " + groupName);
-        } else {
-            Toast.makeText(context, "Warning: Set WhatsApp Group Name in Settings!", Toast.LENGTH_LONG).show();
         }
     }
 
@@ -114,7 +114,7 @@ public class AlarmReceiver extends BroadcastReceiver {
      * Posts the high-priority notification.
      * Uses Intent.createChooser() to allow selecting Clone Apps.
      */
-    private void showNotification(Context context, Uri imageUri) {
+    private void showNotification(Context context, Uri imageUri, int notificationId) {
         createNotificationChannel(context);
 
         // A. The Share Intent
@@ -122,35 +122,36 @@ public class AlarmReceiver extends BroadcastReceiver {
         shareIntent.setType("image/*");
         shareIntent.putExtra(Intent.EXTRA_STREAM, imageUri);
         shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        // NOTE: No 'setPackage' here. This enables the Multi-App Selector.
-
+        
         // B. The Chooser Intent (Forces the "Select App" menu)
+        // This title "Select WhatsApp..." helps the Robot know where it is.
         Intent chooserIntent = Intent.createChooser(shareIntent, "Select WhatsApp to Send...");
         
-        // C. The PendingIntent (Waiting for user tap)
-        // Use System.currentTimeMillis() as ID to ensure unique pending intents
+        // C. The PendingIntent
+        // CRITICAL: We use notificationId as request code to ensure unique PendingIntents
         PendingIntent pendingIntent = PendingIntent.getActivity(
                 context,
-                (int) System.currentTimeMillis(), 
+                notificationId, 
                 chooserIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
         // D. The Notification
-        Notification notification = new NotificationCompat.Builder(context, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_camera) // Make sure you have an icon
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_camera) 
                 .setContentTitle("Photo Ready to Send")
-                .setContentText("Tap to choose WhatsApp & Auto-Send")
-                .setPriority(NotificationCompat.PRIORITY_HIGH) // Heads up!
-                .setCategory(NotificationCompat.CATEGORY_ALARM) // Bypass DND if possible
+                .setContentText("Scheduled Upload #" + notificationId)
+                .setPriority(NotificationCompat.PRIORITY_MAX) // Max Priority for Heads-up
+                .setCategory(NotificationCompat.CATEGORY_ALARM) // Bypass DND
                 .setContentIntent(pendingIntent)
-                .setAutoCancel(true) // Remove when clicked
-                .build();
+                .setFullScreenIntent(pendingIntent, true) // Try to pop up immediately if allowed
+                .setAutoCancel(true); // Remove when clicked
 
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager != null) {
-            manager.notify(NOTIFICATION_ID, notification);
-            Log.d(TAG, "Notification Posted. Waiting for user selection.");
+            // FIX: Use unique notificationId instead of constant 999
+            manager.notify(notificationId, builder.build());
+            Log.d(TAG, "Notification Posted ID: " + notificationId);
         }
     }
 
@@ -159,10 +160,11 @@ public class AlarmReceiver extends BroadcastReceiver {
             NotificationChannel channel = new NotificationChannel(
                     CHANNEL_ID,
                     "Scheduled Sends",
-                    NotificationManager.IMPORTANCE_HIGH
+                    NotificationManager.IMPORTANCE_HIGH // High importance for pop-ups
             );
             channel.setDescription("Notifications for scheduled photo uploads");
             channel.enableVibration(true);
+            channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
             
             NotificationManager manager = context.getSystemService(NotificationManager.class);
             if (manager != null) {
@@ -170,4 +172,4 @@ public class AlarmReceiver extends BroadcastReceiver {
             }
         }
     }
-                          }
+}
