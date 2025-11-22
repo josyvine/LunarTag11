@@ -18,23 +18,28 @@ import java.util.List;
 
 /**
  * The Automation Brain.
- * UPDATED: Manual List Scanning and Deep Hierarchy Clicking for WhatsApp.
+ * UPDATED: Full Code with Build Fix (return types) and Manual List Scanning.
  */
 public class LunarTagAccessibilityService extends AccessibilityService {
 
     private static final String TAG = "AccessibilityService";
+
+    // --- Shared Memory Constants ---
     private static final String PREFS_ACCESSIBILITY = "LunarTagAccessPrefs";
     
+    // Keys must match what we will save in RobotFragment and AppsFragment
     private static final String KEY_TARGET_GROUP = "target_group_name";
     private static final String KEY_JOB_PENDING = "job_is_pending";
-    private static final String KEY_AUTO_MODE = "automation_mode"; 
-    private static final String KEY_TARGET_APP_LABEL = "target_app_label"; 
+    private static final String KEY_AUTO_MODE = "automation_mode"; // "semi" or "full"
+    private static final String KEY_TARGET_APP_LABEL = "target_app_label"; // e.g., "WhatsApp" or "WhatsApp (Clone)"
 
     private boolean isScrolling = false;
 
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
+        
+        // Configure service to see all views (interactive windows)
         AccessibilityServiceInfo info = new AccessibilityServiceInfo();
         info.eventTypes = AccessibilityEvent.TYPES_ALL_MASK;
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC;
@@ -43,20 +48,25 @@ public class LunarTagAccessibilityService extends AccessibilityService {
                      AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS |
                      AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
         setServiceInfo(info);
+        
         showDebugToast("🤖 Robot Ready & Waiting...");
     }
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
+        // 1. Check if we have a pending job. If not, do nothing.
         SharedPreferences prefs = getSharedPreferences(PREFS_ACCESSIBILITY, Context.MODE_PRIVATE);
         boolean isJobPending = prefs.getBoolean(KEY_JOB_PENDING, false);
 
-        if (!isJobPending) return;
+        if (!isJobPending) {
+            return;
+        }
 
         String mode = prefs.getString(KEY_AUTO_MODE, "semi");
-        String targetGroupName = prefs.getString(KEY_TARGET_GROUP, "").trim(); // Trim spaces!
+        String targetGroupName = prefs.getString(KEY_TARGET_GROUP, "").trim();
         String targetAppLabel = prefs.getString(KEY_TARGET_APP_LABEL, "WhatsApp");
 
+        // Filter irrelevant events to save performance
         int eventType = event.getEventType();
         if (eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
             eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED &&
@@ -70,14 +80,21 @@ public class LunarTagAccessibilityService extends AccessibilityService {
         CharSequence packageNameSeq = event.getPackageName();
         String packageName = (packageNameSeq != null) ? packageNameSeq.toString().toLowerCase() : "";
 
-        // --- 1. NOTIFICATION LOGIC ---
+        // ---------------------------------------------------------
+        // STEP 1: HANDLE NOTIFICATION (Full Automatic Only)
+        // ---------------------------------------------------------
         if (mode.equals("full") && eventType == AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED) {
-            if (packageName.contains(getPackageName())) { 
+            // Check if this notification is from OUR app
+            if (packageName.contains(getPackageName())) {
                 Parcelable data = event.getParcelableData();
                 if (data instanceof Notification) {
-                    showDebugToast("🤖 Notification Detected. Opening...");
+                    showDebugToast("🤖 Notification Detected. Clicking...");
                     try {
-                        ((Notification) data).contentIntent.send();
+                        Notification notification = (Notification) data;
+                        if (notification.contentIntent != null) {
+                            notification.contentIntent.send();
+                            return; // Wait for the next screen
+                        }
                     } catch (PendingIntent.CanceledException e) {
                         e.printStackTrace();
                     }
@@ -85,76 +102,84 @@ public class LunarTagAccessibilityService extends AccessibilityService {
             }
         }
 
-        // --- 2. SHARE SHEET / CLONE SELECTOR ---
+        // ---------------------------------------------------------
+        // STEP 2: HANDLE SHARE SHEET / APP SELECTION (Full Automatic Only)
+        // ---------------------------------------------------------
         if (mode.equals("full") && !packageName.contains("whatsapp")) {
-            // Try to find the app
+            
+            // 1. Try finding the Target App Label
             if (scanAndClick(rootNode, targetAppLabel)) {
                 showDebugToast("🤖 Clicked App: " + targetAppLabel);
                 return;
             }
-            // Special Case for Clone Parent
-            if (targetAppLabel.toLowerCase().contains("clone") && scanAndClick(rootNode, "WhatsApp")) {
-                showDebugToast("🤖 Expanding WhatsApp Menu...");
-                return;
+
+            // 2. Clone Logic: If target is "WhatsApp (Clone)" but not found, look for "WhatsApp"
+            if (targetAppLabel.toLowerCase().contains("clone") || targetAppLabel.toLowerCase().contains("dual")) {
+                 if (scanAndClick(rootNode, "WhatsApp")) {
+                     showDebugToast("🤖 Clicking Parent 'WhatsApp'...");
+                     return;
+                 }
             }
+            
+            // 3. Scroll if nothing found
             performScroll(rootNode);
         }
 
-        // --- 3. WHATSAPP LOGIC ---
+        // ---------------------------------------------------------
+        // STEP 3: HANDLE WHATSAPP (Chat List & Send Screen)
+        // ---------------------------------------------------------
         if (packageName.contains("whatsapp")) {
-            // Debug Log to prove we are scanning
-            // showDebugToast("🤖 Scanning WhatsApp..."); 
-
-            // A. PRIORITY: SEND BUTTON
+            
+            // A. Priority: Find "Send" Button FIRST (Paper Plane)
             if (scanAndClickContentDesc(rootNode, "Send")) {
                 showDebugToast("🤖 SENT! Job Complete.");
                 prefs.edit().putBoolean(KEY_JOB_PENDING, false).apply();
-                return;
+                return; 
             }
-            
-            // B. TARGET GROUP
+
+            // B. Secondary: Find the Group Name
             if (!targetGroupName.isEmpty()) {
-                
-                // Strategy 1: Standard Search
+                // Strategy 1: Standard Android Text Search
                 if (scanAndClick(rootNode, targetGroupName)) {
-                    showDebugToast("🤖 Found Group (Standard): " + targetGroupName);
+                    showDebugToast("🤖 Found Group: " + targetGroupName);
                     return;
                 }
                 
-                // Strategy 2: Manual List Scan (Fix for "Blind Robot")
-                // We find the list, look at children manually.
+                // Strategy 2: Manual List Scan (Fixes the "Blind Robot")
+                // This iterates through list items one by one if standard search fails.
                 if (scanListItemsManually(rootNode, targetGroupName)) {
                      showDebugToast("🤖 Found Group (Manual Scan): " + targetGroupName);
                      return;
                 }
 
-                // Strategy 3: Scroll only if not found
+                // Strategy 3: Scroll List
                 performScroll(rootNode);
             }
         }
     }
 
     /**
-     * Manual Scanner: Iterates visible list items to find text that Android's search missed.
+     * MANUAL LIST SCANNER
+     * Iterates through RecyclerView children to find text that is otherwise hidden.
      */
     private boolean scanListItemsManually(AccessibilityNodeInfo root, String targetText) {
         if (root == null) return false;
         
-        // 1. Is this a list? (RecyclerView or ListView)
+        // Identify if this node is a List
         if (root.getClassName() != null && 
            (root.getClassName().toString().contains("RecyclerView") || 
             root.getClassName().toString().contains("ListView"))) {
             
-            // Iterate children
+            // Iterate children manually
             for (int i = 0; i < root.getChildCount(); i++) {
                 AccessibilityNodeInfo child = root.getChild(i);
                 if (recursiveTextCheck(child, targetText)) {
-                    return true; // Clicked inside recursive function
+                    return true; // Clicked inside the helper
                 }
             }
         }
 
-        // Recursive search for the List itself
+        // Continue searching deeper for the list itself
         for (int i = 0; i < root.getChildCount(); i++) {
             if (scanListItemsManually(root.getChild(i), targetText)) return true;
         }
@@ -162,25 +187,25 @@ public class LunarTagAccessibilityService extends AccessibilityService {
     }
 
     /**
-     * Checks a node and its children for the text, then clicks the high-level parent.
+     * Recursive Text Check used by Manual Scanner.
+     * Checks both Text and ContentDescription.
      */
     private boolean recursiveTextCheck(AccessibilityNodeInfo node, String target) {
         if (node == null) return false;
 
-        // Check Text
+        // Check visible text
         if (node.getText() != null && 
             node.getText().toString().toLowerCase().contains(target.toLowerCase())) {
-            // Found it! Now climb up to find the clickable container
             return tryClickingHierarchy(node);
         }
         
-        // Check Content Description
+        // Check hidden text (Content Description)
         if (node.getContentDescription() != null && 
             node.getContentDescription().toString().toLowerCase().contains(target.toLowerCase())) {
             return tryClickingHierarchy(node);
         }
 
-        // Recurse
+        // Check children
         for (int i = 0; i < node.getChildCount(); i++) {
             if (recursiveTextCheck(node.getChild(i), target)) return true;
         }
@@ -188,7 +213,7 @@ public class LunarTagAccessibilityService extends AccessibilityService {
     }
 
     /**
-     * Wrapper for standard text search
+     * Helper: Finds a node by text and clicks it (or its parent).
      */
     private boolean scanAndClick(AccessibilityNodeInfo root, String text) {
         List<AccessibilityNodeInfo> nodes = root.findAccessibilityNodeInfosByText(text);
@@ -201,7 +226,7 @@ public class LunarTagAccessibilityService extends AccessibilityService {
     }
 
     /**
-     * Wrapper for Content Description search
+     * Helper: Finds a node by Content Description (essential for Image Buttons like "Send").
      */
     private boolean scanAndClickContentDesc(AccessibilityNodeInfo root, String desc) {
         if (root == null) return false;
@@ -216,12 +241,12 @@ public class LunarTagAccessibilityService extends AccessibilityService {
     }
 
     /**
-     * Tries to click the node. If not clickable, climbs up parents (up to 6 levels).
+     * Helper: Checks if a node is clickable. If not, checks parent (up to 6 levels).
      */
     private boolean tryClickingHierarchy(AccessibilityNodeInfo node) {
         AccessibilityNodeInfo target = node;
         int attempts = 0;
-        // Increased depth to 6 for WhatsApp's complex layouts
+        // Increased depth to 6 for complex layouts like WhatsApp
         while (target != null && attempts < 6) {
             if (target.isClickable()) {
                 target.performAction(AccessibilityNodeInfo.ACTION_CLICK);
@@ -233,20 +258,30 @@ public class LunarTagAccessibilityService extends AccessibilityService {
         return false;
     }
 
+    /**
+     * Helper: Finds a scrollable container and scrolls forward.
+     */
     private void performScroll(AccessibilityNodeInfo root) {
-        if (isScrolling) return; 
+        if (isScrolling) return; // Debounce
+
         AccessibilityNodeInfo scrollable = findScrollableNode(root);
         if (scrollable != null) {
             isScrolling = true;
             showDebugToast("🤖 Scrolling...");
             scrollable.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD);
+            
+            // Reset flag after a delay
             new Handler(Looper.getMainLooper()).postDelayed(() -> isScrolling = false, 1500);
         }
     }
 
+    /**
+     * FIXED: Changed return type from boolean to AccessibilityNodeInfo
+     */
     private AccessibilityNodeInfo findScrollableNode(AccessibilityNodeInfo node) {
-        if (node == null) return false;
+        if (node == null) return null;
         if (node.isScrollable()) return node;
+
         for (int i = 0; i < node.getChildCount(); i++) {
             AccessibilityNodeInfo result = findScrollableNode(node.getChild(i));
             if (result != null) return result;
@@ -254,12 +289,17 @@ public class LunarTagAccessibilityService extends AccessibilityService {
         return null;
     }
 
+    /**
+     * Live Log Helper: Shows visual confirmation of background actions on screen.
+     */
     private void showDebugToast(String message) {
-        new Handler(Looper.getMainLooper()).post(() -> 
-            Toast.makeText(getApplicationContext(), message, Toast.LENGTH_SHORT).show()
+        new Handler(Looper.getMainLooper()).post(() ->
+                Toast.makeText(getApplicationContext(), message, Toast.LENGTH_SHORT).show()
         );
     }
 
     @Override
-    public void onInterrupt() { }
+    public void onInterrupt() {
+        Log.d(TAG, "Accessibility service interrupted.");
+    }
 }
