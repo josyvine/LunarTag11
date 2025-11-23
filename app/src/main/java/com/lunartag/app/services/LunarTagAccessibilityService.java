@@ -17,11 +17,6 @@ import java.util.List;
 
 /**
  * LUNARTAG ROBOT - FINAL "HARD RESET" EDITION
- * 
- * FIXES:
- * 1. "One Time Only" -> Fixed by resetting state every time App Package changes.
- * 2. "Silent Log" -> Fixed by using Application Context and Debug Toasts.
- * 3. "Full Auto" -> Fixed by using raw Notification Intents.
  */
 public class LunarTagAccessibilityService extends AccessibilityService {
 
@@ -56,7 +51,6 @@ public class LunarTagAccessibilityService extends AccessibilityService {
         currentState = STATE_IDLE;
 
         // 1. DEBUG TOAST: PROOF OF LIFE
-        // If you do not see this Toast when you turn the switch ON, the service is broken.
         new Handler(Looper.getMainLooper()).post(() -> 
             Toast.makeText(getApplicationContext(), "🤖 ROBOT CONNECTED & LISTENING", Toast.LENGTH_LONG).show());
 
@@ -78,9 +72,8 @@ public class LunarTagAccessibilityService extends AccessibilityService {
         if (!pkgName.equals(lastPackageName)) {
             if (!lastPackageName.isEmpty()) {
                 performBroadcastLog("🔄 App Switch Detected: " + pkgName);
-                // Don't reset if we are just transitioning to share sheet or system resolver
-                // "android" and "resolver" are the package names for the "Select App" dialog
-                if (!pkgName.equals("android") && !pkgName.contains("launcher") && !pkgName.contains("resolver")) {
+                // Don't reset if we are just transitioning to share sheet
+                if (!pkgName.equals("android") && !pkgName.contains("launcher")) {
                      currentState = STATE_IDLE; 
                 }
             }
@@ -90,54 +83,42 @@ public class LunarTagAccessibilityService extends AccessibilityService {
         AccessibilityNodeInfo root = getRootInActiveWindow();
 
         // ====================================================================
-        // FULL AUTOMATIC: CLONE SELECTOR (DIRECT LAUNCH HANDLING)
+        // FULL AUTOMATIC LOGIC (ADDED - DOES NOT TOUCH SEMI AUTO)
         // ====================================================================
         if (mode.equals("full")) {
-            
-            // NOTE: AlarmReceiver fired Direct Intent -> System Dialog is Open.
-            // We check !pkgName.contains("whatsapp") because we are in the System Dialog, not WA yet.
-            
+            // AlarmReceiver has opened the "Original vs Clone" dialog.
+            // We are likely in package "android" or "com.android.intentresolver"
             if (!pkgName.contains("whatsapp") && root != null) {
                 
-                 // STRATEGY 1: Explicitly look for "Clone" text (Matches your video)
-                 List<AccessibilityNodeInfo> cloneNodes = root.findAccessibilityNodeInfosByText("Clone");
-                 if (cloneNodes != null && !cloneNodes.isEmpty()) {
-                     performBroadcastLog("✅ Full Auto: Found 'Clone'. Clicking...");
-                     performClick(cloneNodes.get(0));
-                     currentState = STATE_SEARCHING_GROUP;
-                     return;
-                 }
-
-                 // STRATEGY 2: Explicitly look for "Dual" text (Alternative phones)
-                 List<AccessibilityNodeInfo> dualNodes = root.findAccessibilityNodeInfosByText("Dual");
-                 if (dualNodes != null && !dualNodes.isEmpty()) {
-                     performBroadcastLog("✅ Full Auto: Found 'Dual'. Clicking...");
-                     performClick(dualNodes.get(0));
-                     currentState = STATE_SEARCHING_GROUP;
-                     return;
-                 }
-
-                 // STRATEGY 3: Fallback - Count WhatsApps
-                 List<AccessibilityNodeInfo> nodes = root.findAccessibilityNodeInfosByText("WhatsApp");
-                 if (nodes != null && !nodes.isEmpty()) {
-                     if (nodes.size() >= 2) {
-                         performBroadcastLog("✅ Full Auto: 2 WhatsApps. Clicking Index 1.");
-                         performClick(nodes.get(1)); // Click the second one
+                // Find all items labeled "WhatsApp"
+                List<AccessibilityNodeInfo> nodes = root.findAccessibilityNodeInfosByText("WhatsApp");
+                
+                if (nodes != null && !nodes.isEmpty()) {
+                    // IF WE SEE 2 WHATSAPPS -> CLICK THE 2ND ONE (CLONE)
+                    if (nodes.size() >= 2) {
+                        performBroadcastLog("✅ Full Auto: 2 Apps Found. Clicking Index 1 (Clone).");
+                        
+                        // Try clicking the node, or its parent if the node isn't clickable
+                        AccessibilityNodeInfo target = nodes.get(1); 
+                        performClick(target); 
+                        
+                        currentState = STATE_SEARCHING_GROUP; // Prepare for next step inside WA
+                        return;
+                    }
+                    // IF WE SEE 1 WHATSAPP -> CLICK IT
+                    else if (nodes.size() == 1) {
+                         performBroadcastLog("✅ Full Auto: 1 App Found. Clicking Index 0.");
+                         AccessibilityNodeInfo target = nodes.get(0);
+                         performClick(target);
                          currentState = STATE_SEARCHING_GROUP;
                          return;
-                     } 
-                     else if (nodes.size() == 1) {
-                         performBroadcastLog("✅ Full Auto: 1 WhatsApp. Clicking Index 0.");
-                         performClick(nodes.get(0));
-                         currentState = STATE_SEARCHING_GROUP;
-                         return;
-                     }
-                 }
+                    }
+                }
             }
         }
 
         // ====================================================================
-        // SEMI-AUTOMATIC & FULL: WHATSAPP HANDLING (UNTOUCHED)
+        // SEMI-AUTOMATIC & FULL: WHATSAPP HANDLING (ORIGINAL CODE UNTOUCHED)
         // ====================================================================
         if (pkgName.contains("whatsapp")) {
 
