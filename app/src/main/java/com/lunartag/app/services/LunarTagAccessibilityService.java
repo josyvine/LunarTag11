@@ -14,6 +14,7 @@ import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.Toast;
 
 import java.util.List;
+import java.util.Random; // FIXED: For user-like random delays
 
 /**
  * LUNARTAG ROBOT - FINAL "HARD RESET" EDITION
@@ -22,8 +23,8 @@ import java.util.List;
  * 1. "One Time Only" -> Fixed by resetting state every time App Package changes.
  * 2. "Silent Log" -> Fixed by using Application Context and Debug Toasts.
  * 3. "Full Auto" -> Fixed by using raw Notification Intents.
- * 4. FIXED: Unlimited endless clicks - No limits, scrolls forever until group found.
- * 5. FIXED: Full auto clicks "WhatsApp (Clone)" exactly from screenshot.
+ * 4. FIXED: No clicks - Window state trigger for semi, exact "WhatsApp (Clone)" search in share sheet.
+ * 5. FIXED: User gesture like - Random delays on clicks, endless scroll until finds.
  */
 public class LunarTagAccessibilityService extends AccessibilityService {
 
@@ -40,6 +41,8 @@ public class LunarTagAccessibilityService extends AccessibilityService {
     private int currentState = STATE_IDLE;
     private String lastPackageName = "";
     private boolean isScrolling = false;
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private final Random random = new Random(); // FIXED: For human-like delays
 
     @Override
     protected void onServiceConnected() {
@@ -81,16 +84,22 @@ public class LunarTagAccessibilityService extends AccessibilityService {
             if (!lastPackageName.isEmpty()) {
                 performBroadcastLog("🔄 App Switch Detected: " + pkgName);
                 // Don't reset if we are just transitioning to share sheet or system resolver
-                if (!pkgName.equals("android") && !pkgName.contains("launcher") && !pkgName.contains("resolver")) {
+                if (!pkgName.equals("android") && !pkgName.contains("launcher") && !pkgName.contains("resolver") && !pkgName.contains("systemui")) {
                      currentState = STATE_IDLE; 
                 }
             }
             lastPackageName = pkgName;
         }
 
-        // FIXED: Reset on window change for unlimited runs, stops aggressive
+        // FIXED: Trigger semi-auto on window state change (share screen entry in WhatsApp)
+        if (mode.equals("semi") && event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && pkgName.contains("whatsapp") && currentState == STATE_IDLE) {
+            performBroadcastLog("⚡ Semi-Auto: Window state change in WhatsApp - Starting search...");
+            currentState = STATE_SEARCHING_GROUP;
+        }
+
+        // FIXED: Reset on content change to stop aggressive, allow endless runs
         if (event.getEventType() == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED && currentState != STATE_IDLE) {
-            performBroadcastLog("🔄 Window changed → Reset for unlimited endless run");
+            performBroadcastLog("🔄 Content changed → Reset for endless run");
             currentState = STATE_IDLE;
         }
 
@@ -104,12 +113,13 @@ public class LunarTagAccessibilityService extends AccessibilityService {
             // NOTE: The AlarmReceiver has already fired the Direct Intent.
             // We are now looking at the System Dialog showing "Original vs Clone".
 
-            if (!pkgName.contains("whatsapp") && root != null) {
-                 // FIXED: Exact "WhatsApp (Clone)" from screenshot - case-insensitive fallback
+            // FIXED: Broaden share sheet detection (systemui, launcher, resolver - 2025 standard)
+            if (!pkgName.contains("whatsapp") && (pkgName.contains("systemui") || pkgName.contains("launcher") || pkgName.contains("resolver") || pkgName.contains("android")) && root != null) {
+                 // FIXED: Exact search for "WhatsApp (Clone)" from screenshot
                  List<AccessibilityNodeInfo> cloneNodes = root.findAccessibilityNodeInfosByText("WhatsApp (Clone)");
                  if (cloneNodes != null && !cloneNodes.isEmpty()) {
-                     performBroadcastLog("✅ Full Auto: Clicked WhatsApp (Clone) exactly from screenshot");
-                     performClick(cloneNodes.get(0));
+                     performBroadcastLog("✅ Full Auto: Found exact WhatsApp (Clone) in share sheet - clicking like user...");
+                     delayedClick(cloneNodes.get(0)); // FIXED: User gesture delay
                      currentState = STATE_SEARCHING_GROUP;
                      return;
                  }
@@ -122,26 +132,26 @@ public class LunarTagAccessibilityService extends AccessibilityService {
                          if (node.getText() != null) label = node.getText().toString();
                          else if (node.getContentDescription() != null) label = node.getContentDescription().toString();
                          if (label.toLowerCase().contains("(clone)")) {
-                             performBroadcastLog("✅ Full Auto: Clicked WhatsApp (Clone) via case-insensitive fallback");
-                             performClick(node);
+                             performBroadcastLog("✅ Full Auto: Found WhatsApp (Clone) fallback in share sheet - clicking like user...");
+                             delayedClick(node); // FIXED: User gesture delay
                              currentState = STATE_SEARCHING_GROUP;
                              return;
                          }
                      }
                      // Old fallback if no match
                      if (nodes.size() >= 2) {
-                         performBroadcastLog("✅ Full Auto: Fallback to index 1");
-                         performClick(nodes.get(1));
+                         performBroadcastLog("✅ Full Auto: Fallback index 1 in share sheet");
+                         delayedClick(nodes.get(1)); // FIXED: Delay
                          currentState = STATE_SEARCHING_GROUP;
                          return;
                      } else if (nodes.size() == 1) {
-                         performBroadcastLog("✅ Full Auto: Fallback to index 0");
-                         performClick(nodes.get(0));
+                         performBroadcastLog("✅ Full Auto: Fallback index 0 in share sheet");
+                         delayedClick(nodes.get(0)); // FIXED: Delay
                          currentState = STATE_SEARCHING_GROUP;
                          return;
                      }
                  } else {
-                     performBroadcastLog("⚠️ Full Auto: No nodes found - waiting for next event");
+                     performBroadcastLog("⚠️ Full Auto: No WhatsApp in share sheet - waiting...");
                  }
             }
         }
@@ -150,16 +160,6 @@ public class LunarTagAccessibilityService extends AccessibilityService {
         // SEMI-AUTOMATIC & FULL: WHATSAPP HANDLING (UNTOUCHED)
         // ====================================================================
         if (pkgName.contains("whatsapp")) {
-
-            // SEMI-AUTO WAKE UP TRIGGER
-            // If we are in Semi mode, and just entered WhatsApp, Force Search Mode.
-            if (mode.equals("semi")) {
-                // We check if we are seeing the "Send to..." list to confirm we are sharing
-                if (currentState == STATE_IDLE) {
-                    performBroadcastLog("⚡ Semi-Auto: WhatsApp Detected. Starting unlimited endless search...");
-                    currentState = STATE_SEARCHING_GROUP;
-                }
-            }
 
             // EXECUTE SEARCH
             if (currentState == STATE_SEARCHING_GROUP) {
@@ -171,17 +171,17 @@ public class LunarTagAccessibilityService extends AccessibilityService {
                     return;
                 }
 
-                performBroadcastLog("🔍 Unlimited endless search for '" + targetGroup + "' in root (" + root.getChildCount() + " children)");
+                performBroadcastLog("🔍 Endless search for '" + targetGroup + "' in WhatsApp root (" + root.getChildCount() + " children)");
 
                 // Try finding the group
                 if (scanAndClick(root, targetGroup)) {
-                    performBroadcastLog("✅ Found & Clicked Group: " + targetGroup + " - Endless mode ready for next share");
+                    performBroadcastLog("✅ Found Group: " + targetGroup + " - Sending...");
                     currentState = STATE_CLICKING_SEND; // Move to next step
                     return;
                 }
 
-                // FIXED: Unlimited endless scroll - no limits, forever until finds group
-                performBroadcastLog("🔎 Unlimited endless scroll retry for group...");
+                // FIXED: Endless scroll like user gesture - no limits, forever
+                performBroadcastLog("🔎 Endless scroll in WhatsApp for group...");
                 performScroll(root);
             }
 
@@ -197,27 +197,35 @@ public class LunarTagAccessibilityService extends AccessibilityService {
                 if (!sent) {
                     List<AccessibilityNodeInfo> nodes = root.findAccessibilityNodeInfosByViewId("com.whatsapp:id/send");
                     if (!nodes.isEmpty() && nodes.get(0).isEnabled()) {
-                        performClick(nodes.get(0));
+                        delayedClick(nodes.get(0)); // FIXED: User gesture delay
                         sent = true;
                     } else {
-                        // FIXED: Fallback text search for "Send"
+                        // FIXED: Fallback text search
                         List<AccessibilityNodeInfo> fallback = root.findAccessibilityNodeInfosByText("Send");
                         if (!fallback.isEmpty()) {
-                            performClick(fallback.get(0));
+                            delayedClick(fallback.get(0)); // FIXED: Delay
                             sent = true;
                         }
                     }
                 }
 
                 if (sent) {
-                    performBroadcastLog("🚀 SENT! Unlimited endless reset for next share.");
-                    currentState = STATE_IDLE; // Reset for unlimited next run
+                    performBroadcastLog("🚀 SENT! Endless reset ready.");
+                    currentState = STATE_IDLE; // Reset for next endless run
                 } else {
-                    performBroadcastLog("⚠️ Send failed - Back to unlimited endless search");
-                    currentState = STATE_SEARCHING_GROUP; // FIXED: Loop back endlessly
+                    performBroadcastLog("⚠️ Send failed - Endless retry search");
+                    currentState = STATE_SEARCHING_GROUP;
                 }
             }
         }
+    }
+
+    // FIXED: User gesture like - Random delay before click (500-1000ms, human timing)
+    private void delayedClick(AccessibilityNodeInfo node) {
+        int delay = 500 + random.nextInt(500); // 500-1000ms random
+        handler.postDelayed(() -> {
+            if (node != null) performClick(node);
+        }, delay);
     }
 
     // ====================================================================
@@ -254,12 +262,12 @@ public class LunarTagAccessibilityService extends AccessibilityService {
 
     private boolean recursiveSearch(AccessibilityNodeInfo node, String text) {
         if (node == null) return false;
-        // FIXED: ContentDesc for 2025 groups
+        // FIXED: Check contentDescription for 2025 WhatsApp groups
         if (node.getText() != null && node.getText().toString().toLowerCase().contains(text.toLowerCase())) {
             return performClick(node);
         }
         if (node.getContentDescription() != null && node.getContentDescription().toString().toLowerCase().contains(text.toLowerCase())) {
-            performBroadcastLog("✅ DEBUG: Unlimited endless group find in contentDesc → Click");
+            performBroadcastLog("✅ DEBUG: Group in contentDesc → Click");
             return performClick(node);
         }
         for (int i = 0; i < node.getChildCount(); i++) {
