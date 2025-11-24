@@ -5,12 +5,11 @@ import android.accessibilityservice.AccessibilityServiceInfo;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.os.Build;
+import android.graphics.Rect;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
-import android.widget.Toast;
 
 import java.util.List;
 
@@ -28,12 +27,10 @@ public class LunarTagAccessibilityService extends AccessibilityService {
 
     private int currentState = STATE_IDLE;
     private boolean isScrolling = false;
+    private boolean isClickingPending = false; // Prevents double scanning while waiting for Blink
     
     // SOURCE TRACKING
     private String previousAppPackage = ""; 
-
-    // AI HELPER
-    private AiClicker aiClicker;
 
     @Override
     protected void onServiceConnected() {
@@ -48,11 +45,16 @@ public class LunarTagAccessibilityService extends AccessibilityService {
                      AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
         setServiceInfo(info);
         
-        // INITIALIZE THE AI EYES
-        aiClicker = new AiClicker(this);
+        // START THE OVERLAY SERVICE (So the Red Light is ready)
+        try {
+            Intent intent = new Intent(this, OverlayService.class);
+            startService(intent);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         currentState = STATE_IDLE;
-        performBroadcastLog("🤖 ROBOT ONLINE. AI READY.");
+        performBroadcastLog("🔴 ROBOT ONLINE. VISUAL MARKER READY.");
     }
 
     @Override
@@ -79,48 +81,35 @@ public class LunarTagAccessibilityService extends AccessibilityService {
             if (!isMyApp && currentState != STATE_IDLE) {
                 performBroadcastLog("🛑 Switched App. Robot Stopped.");
                 currentState = STATE_IDLE;
+                if (OverlayService.getInstance() != null) OverlayService.getInstance().hideMarker();
             }
             return; 
         }
 
+        // If we are waiting for the "Blink" animation, don't scan again
+        if (isClickingPending) return;
+
         // ====================================================================
-        // 4. FULL AUTOMATIC: SHARE SHEET (AI POWERED)
+        // 4. FULL AUTOMATIC: SHARE SHEET (VISUAL CLICK)
         // ====================================================================
         if (mode.equals("full") && isShareSheet) {
             
             if (currentState == STATE_IDLE) currentState = STATE_SEARCHING_SHARE_SHEET;
 
             if (currentState == STATE_SEARCHING_SHARE_SHEET) {
-                // CHECK ANDROID VERSION (AI needs Android 11+)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    
-                    // USE AI VISION
-                    aiClicker.scanAndClickVisual("Clone", (success) -> {
-                        if (success) {
-                            performBroadcastLog("✅ AI: Saw 'Clone' and Clicked.");
-                            currentState = STATE_SEARCHING_GROUP;
-                        } else {
-                            // AI didn't see it. It must be hidden. SCROLL.
-                            if (!isScrolling) {
-                                performBroadcastLog("📜 AI didn't see target. Scrolling...");
-                                performScroll(root);
-                            }
-                        }
-                    });
-
+                // Look for "Clone" text
+                if (findMarkerAndClick(root, "Clone", true)) {
+                    performBroadcastLog("✅ Found Clone. Blinking & Clicking...");
+                    currentState = STATE_SEARCHING_GROUP;
                 } else {
-                    // FALLBACK FOR OLD PHONES (Standard Logic)
-                    if (scanAndClick(root, "Clone")) {
-                        currentState = STATE_SEARCHING_GROUP;
-                    } else if (!isScrolling) {
-                        performScroll(root);
-                    }
+                    // Not found? Scroll.
+                    if (!isScrolling) performScroll(root);
                 }
             }
         }
 
         // ====================================================================
-        // 5. WHATSAPP LOGIC (HYBRID)
+        // 5. WHATSAPP LOGIC (VISUAL CLICK)
         // ====================================================================
         if (isWhatsApp) {
             
@@ -131,22 +120,22 @@ public class LunarTagAccessibilityService extends AccessibilityService {
 
             if (root == null) return;
 
-            // A. TRIGGER: "SEND TO..." (Text detection is faster than AI for triggers)
+            // A. TRIGGER: "SEND TO..."
             List<AccessibilityNodeInfo> headers = root.findAccessibilityNodeInfosByText("Send to");
             if (headers != null && !headers.isEmpty()) {
                  if (currentState == STATE_IDLE || currentState == STATE_SEARCHING_SHARE_SHEET) {
-                     performBroadcastLog("⚡ 'Send to' detected. AI Search Started.");
+                     performBroadcastLog("⚡ 'Send to' detected. Starting Visual Search.");
                      currentState = STATE_SEARCHING_GROUP;
                  }
             }
 
-            // B. SEARCH GROUP (Standard - You confirmed this works)
+            // B. SEARCH GROUP (VISUAL)
             if (currentState == STATE_SEARCHING_GROUP) {
                 String targetGroup = prefs.getString(KEY_TARGET_GROUP, "");
                 if (targetGroup.isEmpty()) return;
 
-                if (scanAndClick(root, targetGroup)) {
-                    performBroadcastLog("✅ Found Group: " + targetGroup);
+                if (findMarkerAndClick(root, targetGroup, true)) {
+                    performBroadcastLog("✅ Found Group. Blinking...");
                     currentState = STATE_CLICKING_SEND;
                     return;
                 }
@@ -154,34 +143,21 @@ public class LunarTagAccessibilityService extends AccessibilityService {
                 if (!isScrolling) performScroll(root);
             }
 
-            // C. CLICK SEND (FIXED: Uses View IDs, NOT AI)
+            // C. CLICK SEND (VISUAL - USING IDS)
             else if (currentState == STATE_CLICKING_SEND) {
-                boolean sent = false;
+                boolean found = false;
 
-                // 1. Try Content Description (Standard)
-                if (scanAndClickContentDesc(root, "Send")) sent = true;
+                // 1. Try New WhatsApp ID (Green Arrow)
+                if (findMarkerAndClickID(root, "com.whatsapp:id/conversation_send_arrow")) found = true;
 
-                // 2. Try Standard ID (Old WhatsApp)
-                if (!sent) {
-                    List<AccessibilityNodeInfo> nodes = root.findAccessibilityNodeInfosByViewId("com.whatsapp:id/send");
-                    if (!nodes.isEmpty()) { 
-                        performClick(nodes.get(0)); 
-                        sent = true; 
-                    }
-                }
+                // 2. Try Old WhatsApp ID
+                if (!found && findMarkerAndClickID(root, "com.whatsapp:id/send")) found = true;
+                
+                // 3. Try Content Desc (Fallback)
+                if (!found && findMarkerAndClick(root, "Send", false)) found = true;
 
-                // 3. Try New ID (New WhatsApp 2024/2025)
-                // This is likely why it failed before. The ID changed.
-                if (!sent) {
-                    List<AccessibilityNodeInfo> nodes = root.findAccessibilityNodeInfosByViewId("com.whatsapp:id/conversation_send_arrow");
-                    if (!nodes.isEmpty()) { 
-                        performClick(nodes.get(0)); 
-                        sent = true; 
-                    }
-                }
-
-                if (sent) {
-                    performBroadcastLog("🚀 SENT! Job Done.");
+                if (found) {
+                    performBroadcastLog("🚀 SEND FOUND! Blinking...");
                     currentState = STATE_IDLE;
                 }
             }
@@ -189,44 +165,88 @@ public class LunarTagAccessibilityService extends AccessibilityService {
     }
 
     // ====================================================================
-    // STANDARD UTILITIES
+    // VISUAL MARKER LOGIC (THE RED LIGHT)
     // ====================================================================
 
-    private boolean scanAndClick(AccessibilityNodeInfo root, String text) {
+    /**
+     * Finds text, Draws Red Light, Waits, Then Clicks
+     */
+    private boolean findMarkerAndClick(AccessibilityNodeInfo root, String text, boolean isTextSearch) {
         if (root == null || text == null) return false;
-        List<AccessibilityNodeInfo> nodes = root.findAccessibilityNodeInfosByText(text);
+        
+        List<AccessibilityNodeInfo> nodes;
+        if (isTextSearch) {
+            nodes = root.findAccessibilityNodeInfosByText(text);
+        } else {
+            // Treat 'text' as content description search
+            return recursiveSearchAndClick(root, text);
+        }
+
         if (nodes != null && !nodes.isEmpty()) {
             for (AccessibilityNodeInfo node : nodes) {
-                if (performClick(node)) return true;
+                if (node.isClickable() || node.getParent().isClickable()) {
+                    executeVisualClick(node);
+                    return true;
+                }
             }
         }
-        return recursiveSearch(root, text);
+        
+        if (isTextSearch) return recursiveSearchAndClick(root, text);
+        return false;
     }
 
-    private boolean recursiveSearch(AccessibilityNodeInfo node, String text) {
+    /**
+     * Finds View ID, Draws Red Light, Waits, Then Clicks
+     */
+    private boolean findMarkerAndClickID(AccessibilityNodeInfo root, String viewId) {
+        if (root == null) return false;
+        List<AccessibilityNodeInfo> nodes = root.findAccessibilityNodeInfosByViewId(viewId);
+        if (nodes != null && !nodes.isEmpty()) {
+            executeVisualClick(nodes.get(0));
+            return true;
+        }
+        return false;
+    }
+
+    private boolean recursiveSearchAndClick(AccessibilityNodeInfo node, String text) {
         if (node == null) return false;
-        if (node.getText() != null && node.getText().toString().toLowerCase().contains(text.toLowerCase())) {
-            return performClick(node);
+        boolean match = false;
+        
+        if (node.getText() != null && node.getText().toString().toLowerCase().contains(text.toLowerCase())) match = true;
+        if (node.getContentDescription() != null && node.getContentDescription().toString().toLowerCase().contains(text.toLowerCase())) match = true;
+        
+        if (match) {
+            executeVisualClick(node);
+            return true;
         }
-        if (node.getContentDescription() != null && node.getContentDescription().toString().toLowerCase().contains(text.toLowerCase())) {
-            return performClick(node);
-        }
+
         for (int i = 0; i < node.getChildCount(); i++) {
-            if (recursiveSearch(node.getChild(i), text)) return true;
+            if (recursiveSearchAndClick(node.getChild(i), text)) return true;
         }
         return false;
     }
 
-    private boolean scanAndClickContentDesc(AccessibilityNodeInfo root, String desc) {
-        if (root == null || desc == null) return false;
-        if (root.getContentDescription() != null && 
-            root.getContentDescription().toString().equalsIgnoreCase(desc)) {
-            return performClick(root);
+    /**
+     * CORE LOGIC: DRAW RED LIGHT -> WAIT -> CLICK
+     */
+    private void executeVisualClick(AccessibilityNodeInfo node) {
+        if (isClickingPending) return;
+        isClickingPending = true;
+
+        // 1. GET COORDINATES
+        Rect bounds = new Rect();
+        node.getBoundsInScreen(bounds);
+
+        // 2. SHOW RED BLINKING LIGHT
+        if (OverlayService.getInstance() != null) {
+            OverlayService.getInstance().showMarkerAt(bounds);
         }
-        for (int i = 0; i < root.getChildCount(); i++) {
-            if (scanAndClickContentDesc(root.getChild(i), desc)) return true;
-        }
-        return false;
+
+        // 3. WAIT 500ms (FOR USER TO SEE THE LIGHT) THEN CLICK
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            performClick(node);
+            isClickingPending = false;
+        }, 500); 
     }
 
     private boolean performClick(AccessibilityNodeInfo node) {
@@ -249,7 +269,6 @@ public class LunarTagAccessibilityService extends AccessibilityService {
         if (scrollable != null) {
             isScrolling = true;
             scrollable.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD);
-            // VISUAL WAIT: Essential for AI to have time to see the new screen
             new Handler(Looper.getMainLooper()).postDelayed(() -> isScrolling = false, 800);
         }
     }
@@ -277,5 +296,6 @@ public class LunarTagAccessibilityService extends AccessibilityService {
     @Override
     public void onInterrupt() {
         currentState = STATE_IDLE;
+        if (OverlayService.getInstance() != null) OverlayService.getInstance().hideMarker();
     }
 }
