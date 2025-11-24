@@ -23,19 +23,26 @@ import java.util.Locale;
 
 public class SettingsFragment extends Fragment {
 
+    // General Settings Storage
     private static final String PREFS_NAME = "LunarTagSettings";
     private static final String KEY_COMPANY_NAME = "company_name";
     private static final String KEY_SHIFT_START = "shift_start";
     private static final String KEY_SHIFT_END = "shift_end";
     private static final String KEY_WHATSAPP_GROUP = "whatsapp_group";
 
+    // Robot Settings Storage (AccessPrefs)
+    private static final String PREFS_ACCESSIBILITY = "LunarTagAccessPrefs";
+    private static final String KEY_TARGET_APP_LABEL = "target_app_label";
+
     private FragmentSettingsBinding binding;
     private SharedPreferences settingsPrefs;
+    private SharedPreferences accessPrefs;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         binding = FragmentSettingsBinding.inflate(inflater, container, false);
         settingsPrefs = requireActivity().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        accessPrefs = requireActivity().getSharedPreferences(PREFS_ACCESSIBILITY, Context.MODE_PRIVATE);
         return binding.getRoot();
     }
 
@@ -77,7 +84,7 @@ public class SettingsFragment extends Fragment {
     }
 
     private void loadSettings() {
-        // Load the saved values from SharedPreferences and display them in the UI.
+        // 1. Load General Settings
         String companyName = settingsPrefs.getString(KEY_COMPANY_NAME, "");
         String shiftStart = settingsPrefs.getString(KEY_SHIFT_START, "00:00 AM");
         String shiftEnd = settingsPrefs.getString(KEY_SHIFT_END, "00:00 AM");
@@ -87,20 +94,29 @@ public class SettingsFragment extends Fragment {
         binding.editTextShiftStart.setText(shiftStart);
         binding.editTextShiftEnd.setText(shiftEnd);
         binding.editTextWhatsappGroup.setText(whatsappGroup);
+
+        // 2. Load Robot Target App Name
+        // This allows you to see what is currently set (e.g. "WhatsApp(Clone)")
+        String targetApp = accessPrefs.getString(KEY_TARGET_APP_LABEL, "");
+        binding.editTextTargetApp.setText(targetApp);
     }
 
     private void saveSettings() {
-        // Save the current values from the UI into SharedPreferences.
+        // 1. Save General Settings
         SharedPreferences.Editor editor = settingsPrefs.edit();
-
         editor.putString(KEY_COMPANY_NAME, binding.editTextCompanyName.getText().toString().trim());
         editor.putString(KEY_SHIFT_START, binding.editTextShiftStart.getText().toString());
         editor.putString(KEY_SHIFT_END, binding.editTextShiftEnd.getText().toString());
         editor.putString(KEY_WHATSAPP_GROUP, binding.editTextWhatsappGroup.getText().toString().trim());
-
         editor.apply();
 
-        Toast.makeText(getContext(), "Settings saved successfully!", Toast.LENGTH_SHORT).show();
+        // 2. Save Robot Target App Name
+        // This overwrites whatever was selected in the Apps tab, giving you manual control
+        SharedPreferences.Editor accessEditor = accessPrefs.edit();
+        accessEditor.putString(KEY_TARGET_APP_LABEL, binding.editTextTargetApp.getText().toString().trim());
+        accessEditor.apply();
+
+        Toast.makeText(getContext(), "All Settings Saved!", Toast.LENGTH_SHORT).show();
     }
 
     private void showTimePickerDialog(final boolean isStartTime) {
