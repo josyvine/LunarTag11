@@ -83,12 +83,12 @@ public class LunarTagAccessibilityService extends AccessibilityService {
         // A. Are we in WhatsApp? (Look for "Send to")
         boolean isWhatsAppUI = hasText(root, "Send to") || hasText(root, "Recent chats");
 
-        // B. Are we on the Share Sheet? (Look for the TARGET NAME you saved)
-        // If we see "WhatsApp(Clone)" on screen, we assume it's the share sheet.
-        boolean isTargetVisible = hasText(root, targetAppName);
+        // B. Are we on the Share Sheet? (Look for Target OR "Cancel")
+        // ADDED "Cancel" because your Oppo share sheet has no title, just "Cancel" at bottom.
+        boolean isShareSheet = hasText(root, targetAppName) || hasText(root, "Cancel") || hasText(root, "Share");
 
-        // SAFETY: If neither Target nor WhatsApp is visible, STOP.
-        if (!isWhatsAppUI && !isTargetVisible) {
+        // SAFETY: If neither Context is visible, STOP.
+        if (!isWhatsAppUI && !isShareSheet) {
             if (currentState != STATE_IDLE) {
                 currentState = STATE_IDLE;
                 if (OverlayService.getInstance() != null) OverlayService.getInstance().hideMarker();
@@ -108,7 +108,7 @@ public class LunarTagAccessibilityService extends AccessibilityService {
                 return;
             }
             
-            // If we see "Cancel" (meaning a dialog is open) but not the app, Scroll.
+            // If we see "Cancel" (meaning the white dialog is open) but not the app, Scroll.
             if (hasText(root, "Cancel") && !isScrolling) {
                 performScroll(root);
             }
@@ -163,8 +163,8 @@ public class LunarTagAccessibilityService extends AccessibilityService {
 
     private boolean hasText(AccessibilityNodeInfo root, String text) {
         if (root == null || text == null) return false;
-        // Case insensitive, ignore spaces
-        String cleanTarget = text.toLowerCase().replace(" ", "").trim();
+        // Case insensitive, ignore spaces AND NEW LINES (Fix for Oppo split text)
+        String cleanTarget = text.toLowerCase().replace(" ", "").replace("\n", "").trim();
         
         List<AccessibilityNodeInfo> nodes = root.findAccessibilityNodeInfosByText(cleanTarget);
         if (nodes != null && !nodes.isEmpty()) return true;
@@ -175,8 +175,9 @@ public class LunarTagAccessibilityService extends AccessibilityService {
 
     private boolean recursiveCheckText(AccessibilityNodeInfo node, String text) {
         if (node == null) return false;
-        if (node.getText() != null && node.getText().toString().toLowerCase().replace(" ", "").contains(text)) return true;
-        if (node.getContentDescription() != null && node.getContentDescription().toString().toLowerCase().replace(" ", "").contains(text)) return true;
+        // Fix: also replace \n in the node text before checking
+        if (node.getText() != null && node.getText().toString().toLowerCase().replace(" ", "").replace("\n", "").contains(text)) return true;
+        if (node.getContentDescription() != null && node.getContentDescription().toString().toLowerCase().replace(" ", "").replace("\n", "").contains(text)) return true;
         
         for (int i = 0; i < node.getChildCount(); i++) {
             if (recursiveCheckText(node.getChild(i), text)) return true;
