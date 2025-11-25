@@ -115,7 +115,7 @@
                         android:maxLines="1" />
                 </com.google.android.material.textfield.TextInputLayout>
 
-                <!-- NEW: Target App Name Input (For Share Sheet) -->
+                <!-- Target App Name Input (For Share Sheet) -->
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/layout_target_app"
                     style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
@@ -132,6 +132,16 @@
                         android:maxLines="1" />
                 </com.google.android.material.textfield.TextInputLayout>
 
+                <!-- NEW BUTTON: CALIBRATE COORDINATES -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/button_calibrate_share_icon"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="🎯 Calibrate Share Icon Position"
+                    android:textColor="#D32F2F"
+                    app:strokeColor="#D32F2F" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/button_save_settings"
