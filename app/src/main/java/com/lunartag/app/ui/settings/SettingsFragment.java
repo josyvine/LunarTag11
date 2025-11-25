@@ -2,6 +2,7 @@ package com.lunartag.app.ui.settings;
 
 import android.app.TimePickerDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -17,6 +18,7 @@ import androidx.navigation.fragment.NavHostFragment;
 
 import com.lunartag.app.R;
 import com.lunartag.app.databinding.FragmentSettingsBinding;
+import com.lunartag.app.services.OverlayService;
 
 import java.util.Calendar;
 import java.util.Locale;
@@ -79,6 +81,25 @@ public class SettingsFragment extends Fragment {
             @Override
             public void onClick(View v) {
                 showTimePickerDialog(false);
+            }
+        });
+
+        // --- NEW: CALIBRATE BUTTON LISTENER ---
+        binding.buttonCalibrateShareIcon.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // 1. Minimize the App (Go to Home) so the user can open the Share Sheet
+                Intent startMain = new Intent(Intent.ACTION_MAIN);
+                startMain.addCategory(Intent.CATEGORY_HOME);
+                startMain.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(startMain);
+
+                // 2. Start the Overlay Service in TRAINING MODE
+                Intent intent = new Intent(requireContext(), OverlayService.class);
+                intent.setAction("ACTION_START_TRAINING");
+                requireContext().startService(intent);
+
+                Toast.makeText(getContext(), "Open Share Sheet & Drag Target to Icon!", Toast.LENGTH_LONG).show();
             }
         });
     }
