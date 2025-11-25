@@ -35,10 +35,9 @@ public class LunarTagAccessibilityService extends AccessibilityService {
     private boolean isScrolling = false;
     private long lastToastTime = 0;
 
-    // --- FIX: Added these two missing variables to solve the build error ---
+    // Fixed variables
     private static final int STATE_IDLE = 0;
     private int currentState = STATE_IDLE;
-    // ---------------------------------------------------------------------
 
     @Override
     protected void onServiceConnected() {
@@ -130,24 +129,25 @@ public class LunarTagAccessibilityService extends AccessibilityService {
         if (pkgName.contains("whatsapp")) {
 
             // PRIORITY 1: CHECK FOR SEND BUTTON (Are we in the chat?)
-            // We do this BEFORE checking the token status, so we can finish an active job.
-            boolean sendFound = false;
-            if (findMarkerAndClickID(root, "com.whatsapp:id/conversation_send_arrow")) sendFound = true;
-            if (!sendFound && findMarkerAndClickID(root, "com.whatsapp:id/send")) sendFound = true;
-            
-            if (sendFound) {
-                performBroadcastLog("🚀 SEND BUTTON FOUND. CLICKING...");
-                // SUCCESS! Reset everything.
-                // This stops the robot from searching in the next loop.
-                prefs.edit().putBoolean(KEY_JOB_PENDING, false).apply();
-                
-                new Handler(Looper.getMainLooper()).postDelayed(() -> 
-                    Toast.makeText(getApplicationContext(), "🚀 MESSAGE SENT", Toast.LENGTH_SHORT).show(), 500);
-                return; // Stop here, job done for this cycle.
-            }
-
-            // VISUAL STATUS (Shows only if job is pending)
+            // FIX APPLIED HERE: We only look for the send button if a JOB IS PENDING.
+            // If JOB_PENDING is false, the robot ignores the send button, allowing you to type manually.
             if (prefs.getBoolean(KEY_JOB_PENDING, false)) {
+                
+                boolean sendFound = false;
+                if (findMarkerAndClickID(root, "com.whatsapp:id/conversation_send_arrow")) sendFound = true;
+                if (!sendFound && findMarkerAndClickID(root, "com.whatsapp:id/send")) sendFound = true;
+                
+                if (sendFound) {
+                    performBroadcastLog("🚀 SEND BUTTON FOUND. CLICKING...");
+                    // SUCCESS! Reset everything immediately.
+                    prefs.edit().putBoolean(KEY_JOB_PENDING, false).apply();
+                    
+                    new Handler(Looper.getMainLooper()).postDelayed(() -> 
+                        Toast.makeText(getApplicationContext(), "🚀 MESSAGE SENT", Toast.LENGTH_SHORT).show(), 500);
+                    return; // Stop here, job done.
+                }
+
+                // VISUAL STATUS (Shows only if job is pending)
                 if (System.currentTimeMillis() - lastToastTime > 3000) {
                     new Handler(Looper.getMainLooper()).post(() -> 
                         Toast.makeText(getApplicationContext(), "🤖 Robot Searching: " + targetGroup, Toast.LENGTH_SHORT).show());
@@ -156,8 +156,7 @@ public class LunarTagAccessibilityService extends AccessibilityService {
             }
 
             // PRIORITY 2: CHECK FOR GROUP NAME (Are we in the list?)
-            // LOGIC FIX: Only look for group if JOB_PENDING is true.
-            // If we just sent a message (Priority 1), JOB_PENDING is false, so this block is skipped.
+            // We also check JOB_PENDING here to stop scrolling once the job is done.
             if (prefs.getBoolean(KEY_JOB_PENDING, false) && !targetGroup.isEmpty()) {
                 if (findMarkerAndClick(root, targetGroup, true)) {
                     performBroadcastLog("✅ GROUP FOUND. CLICKING...");
