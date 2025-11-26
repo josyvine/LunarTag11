@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lunar Tag | System Loading...</title>
+    <style>
+        /* --- CORE STYLES --- */
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #12151c; 
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            font-family: sans-serif;
+        }
+
+        /* --- THE APERTURE CONTAINER --- */
+        .lens-assembly {
+            position: relative;
+            width: 350px;
+            height: 350px;
+            border-radius: 50%;
+            background: #000;
+            box-shadow: 
+                0 0 0 10px #1a1a1a, /* Outer Ring */
+                0 0 50px rgba(0,0,0,0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            overflow: hidden;
+        }
+
+        /* Metallic Ring Detail */
+        .lens-assembly::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            border-radius: 50%;
+            border: 2px solid #333;
+            z-index: 20;
+            pointer-events: none;
+        }
+
+        /* --- THE BLADES (IRIS) --- */
+        .shutter {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            overflow: hidden;
+            z-index: 15;
+            /* Animation Trigger */
+            animation: spin-iris 2.5s ease-in-out forwards;
+        }
+
+        .blade {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 175px;
+            height: 350px;
+            background: linear-gradient(135deg, #1a1a1a 0%, #000 100%);
+            border-left: 1px solid #333;
+            transform-origin: top left;
+            transform: rotate(0deg) skewX(30deg); 
+            transition: transform 0.5s;
+        }
+
+        /* Positioning the 6 Blades */
+        .blade:nth-child(1) { transform: rotate(0deg) skewX(30deg); animation: blade-1 2.5s ease-in-out forwards; }
+        .blade:nth-child(2) { transform: rotate(60deg) skewX(30deg); animation: blade-2 2.5s ease-in-out forwards; }
+        .blade:nth-child(3) { transform: rotate(120deg) skewX(30deg); animation: blade-3 2.5s ease-in-out forwards; }
+        .blade:nth-child(4) { transform: rotate(180deg) skewX(30deg); animation: blade-4 2.5s ease-in-out forwards; }
+        .blade:nth-child(5) { transform: rotate(240deg) skewX(30deg); animation: blade-5 2.5s ease-in-out forwards; }
+        .blade:nth-child(6) { transform: rotate(300deg) skewX(30deg); animation: blade-6 2.5s ease-in-out forwards; }
+
+        /* --- THE LOGO REVEAL (Underneath) --- */
+        .logo-reveal {
+            position: absolute;
+            z-index: 5;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #12151c;
+            opacity: 0;
+            animation: fade-in-logo 2.5s ease-in-out forwards;
+        }
+
+        /* THE ACTUAL IMAGE */
+        .my-app-logo {
+            width: 80%;
+            height: auto;
+            object-fit: contain;
+            animation: zoom-logo 3s ease-out forwards;
+        }
+
+        /* --- ANIMATIONS --- */
+        @keyframes spin-iris {
+            0% { transform: rotate(0deg); }
+            30% { transform: rotate(-10deg); }
+            100% { transform: rotate(0deg); }
+        }
+
+        @keyframes fade-in-logo {
+            0% { opacity: 0; }
+            40% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
+        @keyframes zoom-logo {
+            0% { transform: scale(0.8); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes blade-1 { 0% { transform: rotate(0deg) skewX(30deg); } 100% { transform: rotate(70deg) skewX(30deg) translate(60px, -60px); } }
+        @keyframes blade-2 { 0% { transform: rotate(60deg) skewX(30deg); } 100% { transform: rotate(130deg) skewX(30deg) translate(60px, -60px); } }
+        @keyframes blade-3 { 0% { transform: rotate(120deg) skewX(30deg); } 100% { transform: rotate(190deg) skewX(30deg) translate(60px, -60px); } }
+        @keyframes blade-4 { 0% { transform: rotate(180deg) skewX(30deg); } 100% { transform: rotate(250deg) skewX(30deg) translate(60px, -60px); } }
+        @keyframes blade-5 { 0% { transform: rotate(240deg) skewX(30deg); } 100% { transform: rotate(310deg) skewX(30deg) translate(60px, -60px); } }
+        @keyframes blade-6 { 0% { transform: rotate(300deg) skewX(30deg); } 100% { transform: rotate(370deg) skewX(30deg) translate(60px, -60px); } }
+
+        /* Fake "Screen Flash" effect */
+        .flash {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 100;
+            animation: flash-effect 3s ease-in-out;
+        }
+
+        @keyframes flash-effect {
+            0%, 50% { opacity: 0; }
+            55% { opacity: 0.6; }
+            100% { opacity: 0; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="flash"></div>
+
+    <!-- The Camera Lens Assembly -->
+    <div class="lens-assembly">
+        <!-- The Shutter Blades -->
+        <div class="shutter">
+            <div class="blade"></div>
+            <div class="blade"></div>
+            <div class="blade"></div>
+            <div class="blade"></div>
+            <div class="blade"></div>
+            <div class="blade"></div>
+        </div>
+
+        <!-- The Content Revealed Inside -->
+        <div class="logo-reveal">
+            <img src="logo.jpg" alt="Lunar Tag" class="my-app-logo">
+        </div>
+    </div>
+
+</body>
+  </html>
