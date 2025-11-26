@@ -26,19 +26,33 @@
         android:label="@string/title_gallery"
         tools:layout="@layout/fragment_gallery" />
 
-    <!-- NEW: Robot Screen (Automation Mode) -->
+    <!-- Robot Screen (Automation Mode) -->
     <fragment
         android:id="@+id/navigation_robot"
         android:name="com.lunartag.app.ui.robot.RobotFragment"
         android:label="Automation Robot"
         tools:layout="@layout/fragment_robot" />
 
-    <!-- NEW: Apps Screen (Clone Selector) -->
+    <!-- Apps Screen (Clone Selector) -->
     <fragment
         android:id="@+id/navigation_apps"
         android:name="com.lunartag.app.ui.apps.AppsFragment"
         android:label="Target Apps"
         tools:layout="@layout/fragment_apps" />
+
+    <!-- NEW: Help Screen -->
+    <fragment
+        android:id="@+id/navigation_help"
+        android:name="com.lunartag.app.ui.help.HelpFragment"
+        android:label="Help &amp; Guide"
+        tools:layout="@layout/fragment_help" />
+
+    <!-- NEW: Contact Us Screen -->
+    <fragment
+        android:id="@+id/navigation_contact"
+        android:name="com.lunartag.app.ui.contact.ContactFragment"
+        android:label="Contact Us"
+        tools:layout="@layout/fragment_contact" />
 
     <!-- Settings Screen Fragment Destination -->
     <fragment
@@ -52,7 +66,7 @@
             app:destination="@id/navigation_schedule_editor" />
     </fragment>
 
-    <!-- This new destination defines the Schedule Editor screen itself -->
+    <!-- Schedule Editor Screen -->
     <fragment
         android:id="@+id/navigation_schedule_editor"
         android:name="com.lunartag.app.ui.admin.ScheduleEditorFragment"
