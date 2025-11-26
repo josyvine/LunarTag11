@@ -183,29 +183,3 @@
             tools:visibility="visible"/>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
-
-    <!-- LIVE DEBUG CONSOLE (Kept EXACTLY as requested) -->
-    <ScrollView
-        android:layout_width="match_parent"
-        android:layout_height="150dp"
-        android:layout_marginTop="160dp"
-        android:background="#99000000"
-        android:padding="10dp"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent">
-
-        <TextView
-            android:id="@+id/text_debug_console"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="--- LIVE LOG SYSTEM STARTED ---\nWaiting for user interaction..."
-            android:textColor="#00FF00"
-            android:fontFamily="monospace"
-            android:textSize="12sp"
-            android:shadowColor="#000000"
-            android:shadowDx="1"
-            android:shadowDy="1"
-            android:shadowRadius="1" />
-    </ScrollView>
-
-</androidx.constraintlayout.widget.ConstraintLayout>
