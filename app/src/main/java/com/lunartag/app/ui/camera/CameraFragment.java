@@ -194,22 +194,26 @@ public class CameraFragment extends Fragment {
     }
     // --------------------------------------
 
-    // --- DEBUG CONSOLE HELPER (KEPT ORIGINAL) ---
+    // --- DEBUG CONSOLE HELPER (UPDATED FOR BROADCAST) ---
     private void logToScreen(String message) {
-        // Always run on Main Thread so we can update the UI
-        new android.os.Handler(Looper.getMainLooper()).post(() -> {
-            if (binding != null && binding.textDebugConsole != null) {
-                binding.textDebugConsole.append("\n" + message);
-                // Auto-scroll to ensure user sees the newest message
-                binding.textDebugConsole.post(() -> {
-                     if (binding.textDebugConsole.getParent() instanceof View) {
-                         View parent = (View) binding.textDebugConsole.getParent();
-                         parent.scrollBy(0, 1000); // Force scroll down
-                     }
-                });
-                Log.d("LunarTagLive", message); // Also print to system log just in case
-            }
-        });
+        if (getContext() == null) return;
+
+        // Determine if this is an error or info
+        String type = "info";
+        String lowerMsg = message.toLowerCase();
+        if (lowerMsg.contains("error") || lowerMsg.contains("fail") || lowerMsg.contains("missing")) {
+            type = "error";
+        }
+
+        // Broadcast the log to MainActivity
+        Intent intent = new Intent("com.lunartag.ACTION_LOG_UPDATE");
+        intent.putExtra("log_msg", message);
+        intent.putExtra("log_type", type);
+        intent.setPackage(requireContext().getPackageName());
+        requireContext().sendBroadcast(intent);
+
+        // Also print to system log for ADB debugging
+        Log.d("LunarTagLive", message); 
     }
     // --------------------------------------------
 
