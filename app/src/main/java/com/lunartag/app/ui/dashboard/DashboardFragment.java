@@ -3,6 +3,7 @@ package com.lunartag.app.ui.dashboard;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -178,9 +179,18 @@ public class DashboardFragment extends Fragment {
 
                     // 3. Delete Physical File
                     try {
-                        File file = new File(photo.getFilePath());
-                        if (file.exists()) {
-                            file.delete();
+                        String filePath = photo.getFilePath();
+                        
+                        // FIXED: Check for Custom Folder (Content URI) vs Standard File
+                        if (filePath != null && filePath.startsWith("content://")) {
+                            // Delete using ContentResolver for SAF
+                            getContext().getContentResolver().delete(Uri.parse(filePath), null, null);
+                        } else {
+                            // Delete standard file
+                            File file = new File(filePath);
+                            if (file.exists()) {
+                                file.delete();
+                            }
                         }
                     } catch (Exception e) {
                         e.printStackTrace();
