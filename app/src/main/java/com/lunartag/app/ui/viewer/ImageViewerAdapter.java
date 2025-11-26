@@ -1,6 +1,7 @@
 package com.lunartag.app.ui.viewer;
 
 import android.content.Context;
+import android.net.Uri;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -36,14 +37,24 @@ public class ImageViewerAdapter extends RecyclerView.Adapter<ImageViewerAdapter.
     @Override
     public void onBindViewHolder(@NonNull ViewerHolder holder, int position) {
         String path = imagePaths.get(position);
-        File file = new File(path);
 
-        // Load the image using Glide. 
-        // Note: We do NOT downsample here (no .override) because the user wants to see details.
-        if (file.exists()) {
+        // FIXED: Handle Custom Folder (Content URI) vs Standard File
+        if (path != null && path.startsWith("content://")) {
+            // It is a Custom Folder URI - Load directly via Glide
             Glide.with(context)
-                    .load(file)
+                    .load(Uri.parse(path))
                     .into(holder.imageView);
+        } else {
+            // It is a Standard Internal File
+            File file = new File(path);
+
+            // Load the image using Glide. 
+            // Note: We do NOT downsample here (no .override) because the user wants to see details.
+            if (file.exists()) {
+                Glide.with(context)
+                        .load(file)
+                        .into(holder.imageView);
+            }
         }
     }
 
