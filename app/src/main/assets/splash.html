@@ -93,13 +93,11 @@
             animation: fade-in-logo 2.5s ease-in-out forwards;
         }
 
-        /* THE ACTUAL IMAGE - FIXED SCALING */
+        /* THE ACTUAL IMAGE - FIXED FOR TALL LOGO */
         .my-app-logo {
-            /* We limit max-width/height to 60% to ensure it fits inside the circle */
-            max-width: 60%;
-            max-height: 60%;
+            /* Strict Height Limit: 45% of the circle size ensures vertical fit */
+            height: 45%; 
             width: auto;
-            height: auto;
             object-fit: contain;
             animation: zoom-logo 3s ease-out forwards;
         }
