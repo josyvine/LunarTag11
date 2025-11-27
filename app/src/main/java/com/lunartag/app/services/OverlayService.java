@@ -39,12 +39,26 @@ public class OverlayService extends Service {
     private boolean isBlinkAttached = false;
     private boolean isTrainingAttached = false;
     
+    // NEW: Track which coordinate we are currently training
+    // Default is SHARE because that was the original single mode
+    private String currentTrainMode = "MODE_SHARE"; 
+    
     private final Handler handler = new Handler(Looper.getMainLooper());
 
     // Prefs to save coordinates
     private static final String PREFS_ACCESSIBILITY = "LunarTagAccessPrefs";
+    
+    // Coordinate Keys (Memory Slots)
     private static final String KEY_ICON_X = "share_icon_x";
     private static final String KEY_ICON_Y = "share_icon_y";
+    
+    // NEW KEYS for Option B
+    private static final String KEY_GROUP_X = "group_x";
+    private static final String KEY_GROUP_Y = "group_y";
+    private static final String KEY_CHAT_X = "chat_send_x";
+    private static final String KEY_CHAT_Y = "chat_send_y";
+    private static final String KEY_PREVIEW_X = "preview_send_x";
+    private static final String KEY_PREVIEW_Y = "preview_send_y";
 
     @Override
     public void onCreate() {
@@ -86,6 +100,15 @@ public class OverlayService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && "ACTION_START_TRAINING".equals(intent.getAction())) {
+            
+            // NEW: Capture which button the user clicked in Settings
+            String mode = intent.getStringExtra("TRAIN_MODE");
+            if (mode != null) {
+                this.currentTrainMode = mode;
+            } else {
+                this.currentTrainMode = "MODE_SHARE"; // Fallback
+            }
+            
             showTrainingTarget();
         }
         return START_STICKY;
@@ -127,7 +150,7 @@ public class OverlayService extends Service {
         });
     }
 
-    // NEW: Helper to Blink at specific X,Y (For Share Sheet)
+    // NEW: Helper to Blink at specific X,Y (For Share Sheet & Option B)
     // Creates a fake 100x100 box at the saved coordinate to simulate the blink
     public void showMarkerAtCoordinate(int x, int y) {
         Rect fakeRect = new Rect(x, y, x + 150, y + 150);
@@ -192,6 +215,10 @@ public class OverlayService extends Service {
                 windowManager.addView(trainingView, trainingParams);
                 isTrainingAttached = true;
 
+                // Toast to remind user what they are training
+                String msg = "Training: " + currentTrainMode;
+                Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
+
             } catch (Exception e) {
                 e.printStackTrace();
                 Toast.makeText(this, "Error showing overlay: " + e.getMessage(), Toast.LENGTH_SHORT).show();
@@ -227,23 +254,46 @@ public class OverlayService extends Service {
         });
     }
 
+    /**
+     * UPDATED: Saves to the correct key based on currentTrainMode
+     */
     private void saveCoordinates() {
         // Calculate center of the crosshair (approx offset)
-        // The View is wrap_content, we want the click to be where the image is.
-        // Simple approach: Save top-left + padding.
-        // Or just save x,y and let the robot click there.
-        
-        // Adding offset (e.g. 50px) to click the center of the crosshair, not the top-left corner
         int targetX = trainingParams.x + 75; 
         int targetY = trainingParams.y + 75; 
 
         SharedPreferences prefs = getSharedPreferences(PREFS_ACCESSIBILITY, Context.MODE_PRIVATE);
-        prefs.edit()
-                .putInt(KEY_ICON_X, targetX)
-                .putInt(KEY_ICON_Y, targetY)
-                .apply();
+        SharedPreferences.Editor editor = prefs.edit();
 
-        Toast.makeText(this, "Position Saved: " + targetX + "," + targetY, Toast.LENGTH_LONG).show();
+        // LOGIC: Save to specific slot
+        switch (currentTrainMode) {
+            case "MODE_GROUP":
+                editor.putInt(KEY_GROUP_X, targetX);
+                editor.putInt(KEY_GROUP_Y, targetY);
+                Toast.makeText(this, "Group Location Saved!", Toast.LENGTH_SHORT).show();
+                break;
+                
+            case "MODE_CHAT":
+                editor.putInt(KEY_CHAT_X, targetX);
+                editor.putInt(KEY_CHAT_Y, targetY);
+                Toast.makeText(this, "Chat Send Icon Saved!", Toast.LENGTH_SHORT).show();
+                break;
+                
+            case "MODE_PREVIEW":
+                editor.putInt(KEY_PREVIEW_X, targetX);
+                editor.putInt(KEY_PREVIEW_Y, targetY);
+                Toast.makeText(this, "Final Send Button Saved!", Toast.LENGTH_SHORT).show();
+                break;
+                
+            case "MODE_SHARE":
+            default:
+                editor.putInt(KEY_ICON_X, targetX);
+                editor.putInt(KEY_ICON_Y, targetY);
+                Toast.makeText(this, "Share Sheet Icon Saved!", Toast.LENGTH_SHORT).show();
+                break;
+        }
+        
+        editor.apply();
         removeTrainingView();
     }
 
