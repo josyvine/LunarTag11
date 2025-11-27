@@ -19,24 +19,41 @@ import java.util.List;
 public class LunarTagAccessibilityService extends AccessibilityService {
 
     private static final String PREFS_ACCESSIBILITY = "LunarTagAccessPrefs";
+    private static final String PREFS_SETTINGS = "LunarTagSettings"; // To read Option A vs B
+    
     private static final String KEY_AUTO_MODE = "automation_mode"; 
     private static final String KEY_TARGET_GROUP = "target_group_name";
+    private static final String KEY_WA_METHOD = "wa_automation_method"; // "red_box" or "coordinate"
     
-    // Coordinates
+    // Coordinates (Share Sheet)
     private static final String KEY_ICON_X = "share_icon_x";
     private static final String KEY_ICON_Y = "share_icon_y";
+
+    // Coordinates (Option B - WhatsApp)
+    private static final String KEY_GROUP_X = "group_x";
+    private static final String KEY_GROUP_Y = "group_y";
+    private static final String KEY_CHAT_X = "chat_send_x";
+    private static final String KEY_CHAT_Y = "chat_send_y";
+    private static final String KEY_PREVIEW_X = "preview_send_x";
+    private static final String KEY_PREVIEW_Y = "preview_send_y";
 
     // TOKENS
     private static final String KEY_JOB_PENDING = "job_is_pending";
     private static final String KEY_FORCE_RESET = "force_reset_logic";
 
-    // LOGIC FLAGS
+    // LOGIC FLAGS (General)
     private boolean isClickingPending = false; 
     private boolean isScrolling = false;
     private long lastToastTime = 0;
     
-    // Safety flag to prevent Share Sheet loop without killing the token
+    // Safety flag to prevent Share Sheet loop
     private boolean shareSheetClicked = false;
+
+    // Safety flags for Option B (Coordinate Mode)
+    // These ensure we only click each sequence ONCE per job
+    private boolean groupCoordinateClicked = false;
+    private boolean chatSendCoordinateClicked = false;
+    private boolean previewSendCoordinateClicked = false;
 
     // Fixed variables
     private static final int STATE_IDLE = 0;
@@ -81,14 +98,24 @@ public class LunarTagAccessibilityService extends AccessibilityService {
 
         AccessibilityNodeInfo root = getRootInActiveWindow();
         SharedPreferences prefs = getSharedPreferences(PREFS_ACCESSIBILITY, Context.MODE_PRIVATE);
+        SharedPreferences settings = getSharedPreferences(PREFS_SETTINGS, Context.MODE_PRIVATE);
+        
         String mode = prefs.getString(KEY_AUTO_MODE, "semi");
         String targetGroup = prefs.getString(KEY_TARGET_GROUP, "");
+        String waMethod = settings.getString(KEY_WA_METHOD, "red_box"); // Default Option A
 
-        // 2. BRAIN WIPE CHECK (From Camera)
+        // 2. BRAIN WIPE CHECK (From Camera - New Job Started)
         if (prefs.getBoolean(KEY_FORCE_RESET, false)) {
             isClickingPending = false;
+            shareSheetClicked = false;
+            
+            // Reset Option B Sequence Flags
+            groupCoordinateClicked = false;
+            chatSendCoordinateClicked = false;
+            previewSendCoordinateClicked = false;
+            
             prefs.edit().putBoolean(KEY_FORCE_RESET, false).apply();
-            performBroadcastLog("🔄 NEW JOB DETECTED.");
+            performBroadcastLog("🔄 NEW JOB DETECTED. MEMORY WIPED.");
         }
 
         if (root == null) return;
@@ -125,11 +152,6 @@ public class LunarTagAccessibilityService extends AccessibilityService {
                     // Delay 500ms for animation
                     new Handler(Looper.getMainLooper()).postDelayed(() -> {
                         dispatchGesture(createClickGesture(x, y), null, null);
-                        
-                        // IMPORTANT: We do NOT set KEY_JOB_PENDING to false here anymore.
-                        // We keep it TRUE so the robot knows to work when WhatsApp opens.
-                        // The 'shareSheetClicked' flag prevents the loop on this screen.
-                        
                         isClickingPending = false; 
                     }, 500);
                 }
@@ -142,10 +164,20 @@ public class LunarTagAccessibilityService extends AccessibilityService {
         // ====================================================================
         if (pkgName.contains("whatsapp")) {
 
-            // CRITICAL GUARD: 
-            // Robot only works if JOB_PENDING is true. 
-            // This protects your personal usage (no random clicks while typing).
+            // CRITICAL GUARD: Robot only works if JOB_PENDING is true.
             if (prefs.getBoolean(KEY_JOB_PENDING, false)) {
+
+                // -----------------------------------------------------------
+                // BRANCH: CHECK METHOD (Option A: Red Box vs Option B: Coordinate)
+                // -----------------------------------------------------------
+                
+                if (waMethod.equals("coordinate")) {
+                    // >>> OPTION B: MANUAL COORDINATE MODE <<<
+                    performCoordinateLogic(root, prefs);
+                    return; // Exit here, do not run Red Box logic
+                }
+                
+                // >>> OPTION A: EXISTING RED BOX LOGIC (DEFAULT) <<<
 
                 // --- SEARCH FOR ANY SEND BUTTON ---
                 boolean sendFound = false;
@@ -193,7 +225,98 @@ public class LunarTagAccessibilityService extends AccessibilityService {
     }
 
     // ====================================================================
-    // UTILITIES
+    // NEW LOGIC: OPTION B (COORDINATE SEQUENCES)
+    // ====================================================================
+    private void performCoordinateLogic(AccessibilityNodeInfo root, SharedPreferences prefs) {
+        
+        // --- SEQUENCE 1: GROUP SELECTION ---
+        // Condition: We haven't clicked the group yet.
+        if (!groupCoordinateClicked) {
+            int x = prefs.getInt(KEY_GROUP_X, 0);
+            int y = prefs.getInt(KEY_GROUP_Y, 0);
+            
+            if (x > 0 && y > 0) {
+                performBroadcastLog("📍 Coord Mode: Step 1 (Group). Clicking...");
+                executeCoordinateClick(x, y);
+                groupCoordinateClicked = true; // LOCK SEQUENCE 1
+            }
+            return;
+        }
+
+        // --- SEQUENCE 2: CHAT SEND/ATTACH ICON ---
+        // Condition: Group is done, but Chat Icon not clicked.
+        // Screen Check: Look for Input Box (entry) to confirm we are inside chat.
+        if (groupCoordinateClicked && !chatSendCoordinateClicked) {
+            
+            // Check if we are actually in a chat (Look for input field ID)
+            List<AccessibilityNodeInfo> inputNodes = root.findAccessibilityNodeInfosByViewId("com.whatsapp:id/entry");
+            // Also check for voice note button as backup marker
+            List<AccessibilityNodeInfo> voiceNodes = root.findAccessibilityNodeInfosByViewId("com.whatsapp:id/voice_note_btn");
+            
+            if ((inputNodes != null && !inputNodes.isEmpty()) || (voiceNodes != null && !voiceNodes.isEmpty())) {
+                int x = prefs.getInt(KEY_CHAT_X, 0);
+                int y = prefs.getInt(KEY_CHAT_Y, 0);
+                
+                if (x > 0 && y > 0) {
+                    performBroadcastLog("📍 Coord Mode: Step 2 (Chat Icon). Clicking...");
+                    executeCoordinateClick(x, y);
+                    chatSendCoordinateClicked = true; // LOCK SEQUENCE 2
+                }
+            }
+            return;
+        }
+
+        // --- SEQUENCE 3: FINAL PREVIEW SEND ---
+        // Condition: Chat Icon is done, but Final Send not clicked.
+        // Screen Check: Look for Caption Box or Filter/Crop/Send IDs
+        if (chatSendCoordinateClicked && !previewSendCoordinateClicked) {
+            
+            // Check if we are on preview screen (Caption box is usually present)
+            List<AccessibilityNodeInfo> captionNodes = root.findAccessibilityNodeInfosByViewId("com.whatsapp:id/caption");
+            List<AccessibilityNodeInfo> sendNodes = root.findAccessibilityNodeInfosByViewId("com.whatsapp:id/send");
+            List<AccessibilityNodeInfo> doodleNodes = root.findAccessibilityNodeInfosByViewId("com.whatsapp:id/doodle");
+            
+            if ((captionNodes != null && !captionNodes.isEmpty()) || 
+                (sendNodes != null && !sendNodes.isEmpty()) || 
+                (doodleNodes != null && !doodleNodes.isEmpty())) {
+                
+                int x = prefs.getInt(KEY_PREVIEW_X, 0);
+                int y = prefs.getInt(KEY_PREVIEW_Y, 0);
+                
+                if (x > 0 && y > 0) {
+                    performBroadcastLog("📍 Coord Mode: Step 3 (Final Send). Clicking...");
+                    executeCoordinateClick(x, y);
+                    previewSendCoordinateClicked = true; // LOCK SEQUENCE 3
+                    
+                    // SUCCESS! Disable the Job.
+                    prefs.edit().putBoolean(KEY_JOB_PENDING, false).apply();
+                    
+                    new Handler(Looper.getMainLooper()).postDelayed(() -> 
+                        Toast.makeText(getApplicationContext(), "🚀 SEQUENCE COMPLETE", Toast.LENGTH_SHORT).show(), 500);
+                }
+            }
+            return;
+        }
+    }
+
+    private void executeCoordinateClick(int x, int y) {
+        if (isClickingPending) return;
+        isClickingPending = true;
+        
+        // Show Visual Marker
+        if (OverlayService.getInstance() != null) {
+            OverlayService.getInstance().showMarkerAtCoordinate(x, y);
+        }
+        
+        // Execute Click after delay
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            dispatchGesture(createClickGesture(x, y), null, null);
+            isClickingPending = false; 
+        }, 500);
+    }
+
+    // ====================================================================
+    // EXISTING UTILITIES (UNTOUCHED)
     // ====================================================================
 
     private GestureDescription createClickGesture(int x, int y) {
@@ -248,7 +371,6 @@ public class LunarTagAccessibilityService extends AccessibilityService {
         return false;
     }
 
-    // NEW UTILITY: Specifically looks for Content Description "Send" (The Green Button)
     private boolean findMarkerAndClickContentDescription(AccessibilityNodeInfo root, String desc) {
         if (root == null || desc == null) return false;
         String target = desc.toLowerCase();
@@ -348,20 +470,16 @@ public class LunarTagAccessibilityService extends AccessibilityService {
         return null;
     }
 
-    // --- UPDATED LOGGING METHOD ---
     private void performBroadcastLog(String msg) {
         try {
             System.out.println("LUNARTAG_LOG: " + msg);
-            
-            // Determine Type based on keywords
             String type = "info";
             if (msg != null && (msg.toLowerCase().contains("error") || msg.toLowerCase().contains("fail") || msg.toLowerCase().contains("missing"))) {
                 type = "error";
             }
-
             Intent intent = new Intent("com.lunartag.ACTION_LOG_UPDATE");
             intent.putExtra("log_msg", msg);
-            intent.putExtra("log_type", type); // Added type for blinking logic
+            intent.putExtra("log_type", type);
             intent.setPackage(getPackageName());
             getApplicationContext().sendBroadcast(intent);
         } catch (Exception e) {}
