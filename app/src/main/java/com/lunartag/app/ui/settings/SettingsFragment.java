@@ -31,6 +31,9 @@ public class SettingsFragment extends Fragment {
     private static final String KEY_SHIFT_START = "shift_start";
     private static final String KEY_SHIFT_END = "shift_end";
     private static final String KEY_WHATSAPP_GROUP = "whatsapp_group";
+    
+    // NEW: WhatsApp Method (Option A vs Option B)
+    private static final String KEY_WA_METHOD = "wa_automation_method"; // "red_box" or "coordinate"
 
     // Robot Settings Storage (AccessPrefs)
     private static final String PREFS_ACCESSIBILITY = "LunarTagAccessPrefs";
@@ -84,24 +87,55 @@ public class SettingsFragment extends Fragment {
             }
         });
 
-        // --- NEW: CALIBRATE BUTTON LISTENER ---
+        // --- EXISTING: CALIBRATE SHARE ICON (Sequence 0) ---
         binding.buttonCalibrateShareIcon.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // 1. Minimize the App (Go to Home) so the user can open the Share Sheet
-                Intent startMain = new Intent(Intent.ACTION_MAIN);
-                startMain.addCategory(Intent.CATEGORY_HOME);
-                startMain.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivity(startMain);
-
-                // 2. Start the Overlay Service in TRAINING MODE
-                Intent intent = new Intent(requireContext(), OverlayService.class);
-                intent.setAction("ACTION_START_TRAINING");
-                requireContext().startService(intent);
-
+                startTraining("MODE_SHARE");
                 Toast.makeText(getContext(), "Open Share Sheet & Drag Target to Icon!", Toast.LENGTH_LONG).show();
             }
         });
+
+        // --- NEW: TRAIN GROUP (Sequence 1) ---
+        binding.buttonTrainGroup.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startTraining("MODE_GROUP");
+                Toast.makeText(getContext(), "Open WhatsApp List & Drag to Group!", Toast.LENGTH_LONG).show();
+            }
+        });
+
+        // --- NEW: TRAIN CHAT ICON (Sequence 2) ---
+        binding.buttonTrainChatSend.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startTraining("MODE_CHAT");
+                Toast.makeText(getContext(), "Open Chat & Drag to Send/Attach Icon!", Toast.LENGTH_LONG).show();
+            }
+        });
+
+        // --- NEW: TRAIN PREVIEW SEND (Sequence 3) ---
+        binding.buttonTrainPreviewSend.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startTraining("MODE_PREVIEW");
+                Toast.makeText(getContext(), "Open Image Preview & Drag to Send Button!", Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    private void startTraining(String mode) {
+        // 1. Minimize the App (Go to Home)
+        Intent startMain = new Intent(Intent.ACTION_MAIN);
+        startMain.addCategory(Intent.CATEGORY_HOME);
+        startMain.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(startMain);
+
+        // 2. Start Overlay Service with specific MODE
+        Intent intent = new Intent(requireContext(), OverlayService.class);
+        intent.setAction("ACTION_START_TRAINING");
+        intent.putExtra("TRAIN_MODE", mode); // Pass the ID so OverlayService knows what to save
+        requireContext().startService(intent);
     }
 
     private void loadSettings() {
@@ -110,14 +144,22 @@ public class SettingsFragment extends Fragment {
         String shiftStart = settingsPrefs.getString(KEY_SHIFT_START, "00:00 AM");
         String shiftEnd = settingsPrefs.getString(KEY_SHIFT_END, "00:00 AM");
         String whatsappGroup = settingsPrefs.getString(KEY_WHATSAPP_GROUP, "");
+        
+        // Load Method Choice (Default: Red Box)
+        String waMethod = settingsPrefs.getString(KEY_WA_METHOD, "red_box");
 
         binding.editTextCompanyName.setText(companyName);
         binding.editTextShiftStart.setText(shiftStart);
         binding.editTextShiftEnd.setText(shiftEnd);
         binding.editTextWhatsappGroup.setText(whatsappGroup);
 
+        if (waMethod.equals("coordinate")) {
+            binding.radioMethodCoordinate.setChecked(true);
+        } else {
+            binding.radioMethodRedBox.setChecked(true);
+        }
+
         // 2. Load Robot Target App Name
-        // This allows you to see what is currently set (e.g. "WhatsApp(Clone)")
         String targetApp = accessPrefs.getString(KEY_TARGET_APP_LABEL, "");
         binding.editTextTargetApp.setText(targetApp);
     }
@@ -129,10 +171,17 @@ public class SettingsFragment extends Fragment {
         editor.putString(KEY_SHIFT_START, binding.editTextShiftStart.getText().toString());
         editor.putString(KEY_SHIFT_END, binding.editTextShiftEnd.getText().toString());
         editor.putString(KEY_WHATSAPP_GROUP, binding.editTextWhatsappGroup.getText().toString().trim());
+        
+        // Save Method Choice
+        if (binding.radioMethodCoordinate.isChecked()) {
+            editor.putString(KEY_WA_METHOD, "coordinate");
+        } else {
+            editor.putString(KEY_WA_METHOD, "red_box");
+        }
+        
         editor.apply();
 
         // 2. Save Robot Target App Name
-        // This overwrites whatever was selected in the Apps tab, giving you manual control
         SharedPreferences.Editor accessEditor = accessPrefs.edit();
         accessEditor.putString(KEY_TARGET_APP_LABEL, binding.editTextTargetApp.getText().toString().trim());
         accessEditor.apply();
@@ -173,22 +222,14 @@ public class SettingsFragment extends Fragment {
         timePickerDialog.show();
     }
 
-    /**
-     * This method checks for the admin feature toggle and configures the UI accordingly.
-     */
     private void setupAdminFeatures() {
-        // Access the feature toggles preferences that are set by the Firebase service
         SharedPreferences featureTogglePrefs = requireActivity().getSharedPreferences("LunarTagFeatureToggles", Context.MODE_PRIVATE);
         boolean isAdminModeEnabled = featureTogglePrefs.getBoolean("customTimestampEnabled", false);
 
-        // THIS IS THE IMPORTANT DEBUG LINE
         Toast.makeText(getContext(), "Admin Flag is: " + isAdminModeEnabled, Toast.LENGTH_LONG).show();
 
         if (isAdminModeEnabled) {
-            // If the flag is true, make the admin button visible
             binding.buttonAdminScheduleEditor.setVisibility(View.VISIBLE);
-
-            // Add a click listener to the button to navigate to the schedule editor screen
             binding.buttonAdminScheduleEditor.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -197,7 +238,6 @@ public class SettingsFragment extends Fragment {
                 }
             });
         } else {
-            // If the flag is false, ensure the button is hidden from regular users
             binding.buttonAdminScheduleEditor.setVisibility(View.GONE);
         }
     }
