@@ -105,6 +105,7 @@ public class LunarTagAccessibilityService extends AccessibilityService {
         String waMethod = settings.getString(KEY_WA_METHOD, "red_box"); // Default Option A
 
         // 2. BRAIN WIPE CHECK (From Camera - New Job Started)
+        // This acts as a secondary backup reset
         if (prefs.getBoolean(KEY_FORCE_RESET, false)) {
             isClickingPending = false;
             shareSheetClicked = false;
@@ -245,8 +246,7 @@ public class LunarTagAccessibilityService extends AccessibilityService {
 
         // --- SEQUENCE 2: GREEN ARROW (Contact List Next) ---
         // Condition: Group is done, but Arrow not clicked.
-        // FIX: Removed "id/entry" check. We are on the Contact List screen.
-        // We simply wait for the next event (which happens after Group is clicked/highlighted).
+        // Screen Logic: We are on the same screen (Contact List). Wait for event.
         if (groupCoordinateClicked && !chatSendCoordinateClicked) {
 
             int x = prefs.getInt(KEY_CHAT_X, 0);
@@ -282,8 +282,17 @@ public class LunarTagAccessibilityService extends AccessibilityService {
                     executeCoordinateClick(x, y);
                     previewSendCoordinateClicked = true; // LOCK SEQUENCE 3
 
-                    // SUCCESS! Disable the Job.
+                    // --- SUCCESS! JOB DONE. ---
+                    // 1. Disable the Job Ticket
                     prefs.edit().putBoolean(KEY_JOB_PENDING, false).apply();
+
+                    // 2. *** FIX: INSTANT MEMORY CLEANING ***
+                    // Reset all flags to FALSE immediately so we are ready for the next message.
+                    groupCoordinateClicked = false;
+                    chatSendCoordinateClicked = false;
+                    previewSendCoordinateClicked = false;
+                    shareSheetClicked = false;
+                    // ---------------------------------------
 
                     new Handler(Looper.getMainLooper()).postDelayed(() -> 
                         Toast.makeText(getApplicationContext(), "🚀 SEQUENCE COMPLETE", Toast.LENGTH_SHORT).show(), 500);
